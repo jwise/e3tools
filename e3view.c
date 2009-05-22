@@ -17,43 +17,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#define BYTES_PER_SECTOR 512LL
-
-typedef uint64_t sector_t;
-
-int read_sector(sector_t s, uint8_t *buf)
-{
-	/* XXX generalize as needed? */
-	/* XXX this sucks */
-	static unsigned int fd = -1;
-	
-	if (fd == -1)
-		fd = open("/dev/storage/storage0", O_RDONLY);
-	if (fd == -1)	/* Still? */
-		return -1;	/* oh well */
-	if (lseek64(fd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
-		return -1;	/* oh well */
-	if (read(fd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
-		return -1;
-	return 0;
-}
-
-int write_sector(sector_t s, uint8_t *buf)
-{
-	/* XXX generalize as needed? */
-	/* XXX this sucks */
-	static unsigned int fd = -1;
-	
-	if (fd == -1)
-		fd = open("/dev/storage/storage0", O_RDWR);
-	if (fd == -1)	/* Still? */
-		return -1;	/* oh well */
-	if (lseek64(fd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
-		return -1;	/* oh well */
-	if (write(fd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
-		return -1;
-	return 0;
-}
+#include "diskio.h"
 
 int ispow(int n, int p)
 {
@@ -119,7 +83,6 @@ void show_block_group_desc_table(struct ext2_super_block *sb)
 		int pos = curbg % (BYTES_PER_SECTOR / sizeof(struct ext2_group_desc));
 		if (pos == 0)
 		{
-#if 0
 			if (dirty)
 			{
 				sector--;
@@ -133,7 +96,6 @@ void show_block_group_desc_table(struct ext2_super_block *sb)
 				sector++;
 				dirty = 0;
 			}
-#endif
 			printf("Reading from new sector: %lld\n", sector);
 			if (read_sector(sector, (uint8_t *)sect) < 0)
 			{
