@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "diskio.h"
 
@@ -169,23 +170,56 @@ void show_superblock(struct ext2_super_block *sb)
 	printf("\t   (Blocks left over?) : %d\n", sb->s_blocks_count % sb->s_blocks_per_group);
 }
 
-int main()
+int main(int argc, char **argv)
 {
 	struct ext2_super_block sb;
+	sector_t sbsector = 2;
+	int opt;
+	int print_sb = 1;
+	int print_bgd = 1;
 	
-	printf("Reading superblock from sector 2...\n");
-	if (disk_read_sector(2, (uint8_t*)&sb) < 0)
+	while ((opt = getopt(argc, argv, "n:sd")) != -1)
+	{
+		switch (opt)
+		{
+		case 'n':
+			sbsector = strtoll(optarg, NULL, 0);
+			break;
+		case 's':
+			print_sb = 0;
+			break;
+		case 'd':
+			print_bgd = 0;
+			break;
+		default:
+			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d]\n", argv[0]);
+			printf("-n causes the superblock to be read from an alternate location\n");
+			printf("-s inhibits printing of Superblock information\n");
+			printf("-d inhibits printing of block group Descriptor information\n");
+			exit(1);
+		}
+	}
+	
+	printf("Reading superblock from sector %lld...\n", sbsector);
+	if (disk_read_sector(sbsector, (uint8_t*)&sb) < 0)
 	{
 		perror("read_sector");
 		return;
 	}
 	
-	printf("Dumping superblock:\n");
-	show_superblock(&sb);
-	printf("\n");
+	if (print_sb)
+	{
+		printf("Dumping superblock:\n");
+		show_superblock(&sb);
+		printf("\n");
+	}
 	
-	printf("Dumping block group descriptor table:\n");
-	show_block_group_desc_table(&sb);
-	printf("\n");
+	if (print_bgd)
+	{
+		printf("Dumping block group descriptor table:\n");
+		show_block_group_desc_table(&sb);
+		printf("\n");
+	}
+	
 	return 0;
 }
