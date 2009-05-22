@@ -39,4 +39,14 @@ static inline int e3_block_group_expected_block_bitmap(struct ext2_super_block *
 	return bg * sb->s_blocks_per_group + (e3_block_group_has_sb(sb, bg) ? e3_sb_blocks(sb) : 0);
 }
 
+static inline int e3_block_group_expected_inode_bitmap(struct ext2_super_block *sb, int bg)
+{
+	return e3_block_group_expected_block_bitmap(sb, bg) + 1;
+}
+
+static inline int e3_block_group_expected_inode_table(struct ext2_super_block *sb, int bg)
+{
+	return e3_block_group_expected_block_bitmap(sb, bg) + 2;
+}
+
 #endif
