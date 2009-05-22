@@ -22,6 +22,7 @@
 
 #include "diskio.h"
 #include "e3bits.h"
+#include "superblock.h"
 
 void show_block_group_desc_table(struct ext2_super_block *sb)
 {
@@ -154,36 +155,7 @@ void repair_block_group_desc_table(struct ext2_super_block *sb)
 	}
 }
 
-void show_superblock(struct ext2_super_block *sb)
-{
-	printf("Superblock from block group %d\n", sb->s_block_group_nr);
-	printf("\tMagic         : 0x%04X (%s)\n", sb->s_magic, (sb->s_magic == 0xEF53) ? "correct" : "INCORRECT");
-	printf("\tInodes        : %d\n", sb->s_inodes_count);
-	printf("\tBlocks        : %d\n", sb->s_blocks_count);
-	printf("\tBlock size    : %d\n", 1024 << sb->s_log_block_size);
-	printf("\t   on-disk    : %d\n", sb->s_log_block_size);
-	printf("\tFragment size : %d\n", (sb->s_log_frag_size > 0) ? (1024 << sb->s_log_block_size) : (1024 >> -sb->s_log_block_size));
-	printf("\t   on-disk    : %d\n", sb->s_log_frag_size);
-	printf("\tJournal inode : %d\n", sb->s_journal_inum);
-	printf("\n");
-	printf("Group information:\n");
-	printf("\tFirst data block : %d\n", sb->s_first_data_block);
-	printf("\tBlocks per       : %d\n", sb->s_blocks_per_group);
-	printf("\tFragments per    : %d\n", sb->s_frags_per_group);
-	printf("\tInodes per       : %d\n", sb->s_inodes_per_group);
-	if (sb->s_feature_ro_compat & EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER)
-		printf("\tSuperblocks are SPARSE! Available at block groups 0, 1, powers of 3, powers of 5, powers of 7.\n");
-	printf("\n");
-	if (sb->s_log_block_size < 1)
-	{
-		printf("1k blocks are not supported! (Potentially bad superblock?)\n");
-		return;
-	}
-	
-	printf("OK, so expect:\n");
-	printf("\tBlock groups         : %d\n", sb->s_blocks_count / sb->s_blocks_per_group);
-	printf("\t   (Blocks left over?) : %d\n", sb->s_blocks_count % sb->s_blocks_per_group);
-}
+
 
 int main(int argc, char **argv)
 {
@@ -216,7 +188,7 @@ int main(int argc, char **argv)
 			repair_bgd = 1;
 			break;
 		default:
-			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d]\n", argv[0]);
+			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d] [-D]\n", argv[0]);
 			printf("-n causes the superblock to be read from an alternate location\n");
 			printf("-s enables printing of Superblock information\n");
 			printf("-d enables printing of block group Descriptor information\n");
@@ -235,7 +207,7 @@ int main(int argc, char **argv)
 	if (print_sb)
 	{
 		printf("Dumping superblock.\n");
-		show_superblock(&sb);
+		superblock_show(&sb);
 		printf("\n");
 	}
 	
