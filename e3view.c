@@ -19,44 +19,7 @@
 #include <stdlib.h>
 
 #include "diskio.h"
-
-int ispow(int n, int p)
-{
-	if (n == 1)
-		return 1;
-	if (n % p)
-		return 0;
-	return ispow(n / p, p);
-}
-
-int sb_blocks(struct ext2_super_block *sb)
-{
-	int bgs = sb->s_blocks_count / sb->s_blocks_per_group;
-	if (sb->s_blocks_count % sb->s_blocks_per_group)
-		bgs++;
-	int bytes_per_block = 1024 << sb->s_log_block_size;
-	int bgblocks = sizeof(struct ext2_group_desc) * (bgs) / bytes_per_block;
-	if (sizeof(struct ext2_group_desc) * (bgs) % bytes_per_block)
-		bgblocks++;
-	return 1 /* Superblock */ + /*bgblocks*/ 0x400 /* wtf? */;
-}
-
-int block_group_has_sb(struct ext2_super_block *sb, int bg)
-{
-	if (!(sb->s_feature_ro_compat & EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER))
-		return 1;
-	return (bg == 0) || (bg == 1) || ispow(bg, 3) || ispow(bg, 5) || ispow(bg, 7);
-}
-
-int block_is_in_block_group(struct ext2_super_block *sb, int block, int bg)
-{
-	return (block / sb->s_blocks_per_group) == bg;
-}
-
-int block_group_expected_block_bitmap(struct ext2_super_block *sb, int bg)
-{
-	return bg * sb->s_blocks_per_group + (block_group_has_sb(sb, bg) ? sb_blocks(sb) : 0);
-}
+#include "e3bits.h"
 
 void show_block_group_desc_table(struct ext2_super_block *sb)
 {
@@ -107,33 +70,33 @@ void show_block_group_desc_table(struct ext2_super_block *sb)
 			sector++;
 		}
 		printf("\tBlock group %d\n", curbg);
-		if (block_group_has_sb(sb, curbg))
+		if (e3_block_group_has_sb(sb, curbg))
 			printf("\t\tHas superblock\n");
 		printf("\t\tBitmap block : %12d (0x%08x)\n", sect[pos].bg_block_bitmap, sect[pos].bg_block_bitmap);
-		if (!block_is_in_block_group(sb, sect[pos].bg_block_bitmap, curbg))
+		if (!e3_block_is_in_block_group(sb, sect[pos].bg_block_bitmap, curbg))
 			printf("\t\t               ...looks bad!\n");
-		if (sect[pos].bg_block_bitmap != block_group_expected_block_bitmap(sb, curbg))
+		if (sect[pos].bg_block_bitmap != e3_block_group_expected_block_bitmap(sb, curbg))
 		{
-			printf("\t\t               ...but expected %08x! Fixing...\n", block_group_expected_block_bitmap(sb, curbg));
-			sect[pos].bg_block_bitmap = block_group_expected_block_bitmap(sb, curbg);
+			printf("\t\t               ...but expected %08x! Fixing...\n", e3_block_group_expected_block_bitmap(sb, curbg));
+			sect[pos].bg_block_bitmap = e3_block_group_expected_block_bitmap(sb, curbg);
 			dirty++;
 		}
 		printf("\t\tInode block  : %12d (0x%08x)\n", sect[pos].bg_inode_bitmap, sect[pos].bg_inode_bitmap);
-		if (!block_is_in_block_group(sb, sect[pos].bg_inode_bitmap, curbg))
+		if (!e3_block_is_in_block_group(sb, sect[pos].bg_inode_bitmap, curbg))
 			printf("\t\t               ...looks bad!\n");
-		if (sect[pos].bg_inode_bitmap != (block_group_expected_block_bitmap(sb, curbg) + 1))
+		if (sect[pos].bg_inode_bitmap != (e3_block_group_expected_block_bitmap(sb, curbg) + 1))
 		{
-			printf("\t\t               ...but expected %08x! Fixing...\n", block_group_expected_block_bitmap(sb, curbg) + 1);
-			sect[pos].bg_inode_bitmap = block_group_expected_block_bitmap(sb, curbg) + 1;
+			printf("\t\t               ...but expected %08x! Fixing...\n", e3_block_group_expected_block_bitmap(sb, curbg) + 1);
+			sect[pos].bg_inode_bitmap = e3_block_group_expected_block_bitmap(sb, curbg) + 1;
 			dirty++;
 		}
 		printf("\t\tInode table  : %12d (0x%08x)\n", sect[pos].bg_inode_table, sect[pos].bg_inode_table);
-		if (!block_is_in_block_group(sb, sect[pos].bg_inode_table, curbg))
+		if (!e3_block_is_in_block_group(sb, sect[pos].bg_inode_table, curbg))
 			printf("\t\t               ...looks bad!\n");
-		if (sect[pos].bg_inode_table != (block_group_expected_block_bitmap(sb, curbg) + 2))
+		if (sect[pos].bg_inode_table != (e3_block_group_expected_block_bitmap(sb, curbg) + 2))
 		{
-			printf("\t\t               ...but expected %08x! Fixing...\n", block_group_expected_block_bitmap(sb, curbg) + 2);
-			sect[pos].bg_inode_table = block_group_expected_block_bitmap(sb, curbg) + 2;
+			printf("\t\t               ...but expected %08x! Fixing...\n", e3_block_group_expected_block_bitmap(sb, curbg) + 2);
+			sect[pos].bg_inode_table = e3_block_group_expected_block_bitmap(sb, curbg) + 2;
 			dirty++;
 		}
 	}
