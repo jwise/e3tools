@@ -29,6 +29,8 @@
 #include <stdio.h>
 
 #include "diskio.h"
+#include "superblock.h"
+#include "blockgroup.h"
 
 struct exception {
 	sector_t sector;
@@ -63,13 +65,29 @@ int disk_read_sector(sector_t s, uint8_t *buf)
 		return 0;
 	
 	if (fd == -1)
-		fd = open("/dev/storage/storage0", O_RDONLY);
+		fd = open("recover"/*/dev/storage/storage0"*/, O_RDONLY);
 	if (fd == -1)	/* Still? */
 		return -1;	/* oh well */
 	if (lseek64(fd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
 		return -1;	/* oh well */
 	if (read(fd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
 		return -1;
+	return 0;
+}
+
+int disk_read_block(struct ext2_super_block *sb, block_t b, uint8_t *buf)
+{
+	int i;
+	sector_t s;
+	
+	s = ((sector_t)b) * ((sector_t)SB_BLOCK_SIZE(sb) / BYTES_PER_SECTOR);
+	for (i = 0; i < (SB_BLOCK_SIZE(sb) / BYTES_PER_SECTOR); i++)
+	{
+		if (disk_read_sector(s, buf) < 0)
+			return -1;
+		s++;
+		buf += BYTES_PER_SECTOR;
+	}
 	return 0;
 }
 

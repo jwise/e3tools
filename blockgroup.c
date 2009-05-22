@@ -7,10 +7,29 @@
 #include <linux/fs.h>
 #include <linux/ext2_fs.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include "e3bits.h"
 #include "blockgroup.h"
 #include "diskio.h"
+
+block_t block_group_inode_table_block(struct ext2_super_block *sb, int bg)
+{
+	int sectors_per_block = (1024 / BYTES_PER_SECTOR) << sb->s_log_block_size;
+	sector_t sector = (sb->s_block_group_nr * sb->s_blocks_per_group + 1LL) * (sector_t)sectors_per_block;
+	struct ext2_group_desc sect[BYTES_PER_SECTOR / sizeof(struct ext2_group_desc)];
+	
+	sector += (bg * sizeof(struct ext2_group_desc)) / BYTES_PER_SECTOR;
+	
+	if (disk_read_sector(sector, (uint8_t *)sect) < 0)
+	{
+		fflush(stdout);
+		perror("read_sector");
+		return;
+	}
+	
+	return sect[bg % (BYTES_PER_SECTOR / sizeof(struct ext2_group_desc))].bg_inode_table;
+}
 
 void block_group_desc_table_show(struct ext2_super_block *sb)
 {

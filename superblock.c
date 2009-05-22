@@ -18,9 +18,10 @@ void superblock_show(struct ext2_super_block *sb)
 	printf("\tBlocks        : %d\n", sb->s_blocks_count);
 	printf("\tBlock size    : %d\n", 1024 << sb->s_log_block_size);
 	printf("\t   on-disk    : %d\n", sb->s_log_block_size);
-	printf("\tFragment size : %d\n", (sb->s_log_frag_size > 0) ? (1024 << sb->s_log_block_size) : (1024 >> -sb->s_log_block_size));
+	printf("\tFragment size : %d\n", (sb->s_log_frag_size > 0) ? (1024 << sb->s_log_frag_size) : (1024 >> -sb->s_log_frag_size));
 	printf("\t   on-disk    : %d\n", sb->s_log_frag_size);
 	printf("\tJournal inode : %d\n", sb->s_journal_inum);
+	printf("\tInode size    : %d\n", sb->s_inode_size);
 	printf("\n");
 	printf("Group information:\n");
 	printf("\tFirst data block : %d\n", sb->s_first_data_block);
