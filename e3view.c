@@ -87,7 +87,7 @@ void show_block_group_desc_table(struct ext2_super_block *sb)
 			{
 				sector--;
 				printf("Writing back changed sector: %lld\n", sector);
-				if (write_sector(sector, (uint8_t *)sect) < 0)
+				if (disk_write_sector(sector, (uint8_t *)sect) < 0)
 				{
 					fflush(stdout);
 					perror("write_sector");
@@ -97,7 +97,7 @@ void show_block_group_desc_table(struct ext2_super_block *sb)
 				dirty = 0;
 			}
 			printf("Reading from new sector: %lld\n", sector);
-			if (read_sector(sector, (uint8_t *)sect) < 0)
+			if (disk_read_sector(sector, (uint8_t *)sect) < 0)
 			{
 				fflush(stdout);
 				perror("read_sector");
@@ -142,7 +142,7 @@ void show_superblock(sector_t s)
 {
 	struct ext2_super_block sb;
 	
-	if (read_sector(s, (uint8_t*)&sb) < 0)
+	if (disk_read_sector(s, (uint8_t*)&sb) < 0)
 	{
 		perror("read_sector");
 		return;

@@ -4,6 +4,19 @@
 // If you have to make an assumption, write it down. Better assumptions may
 // lead to better grades.
 
+/* The general idea behind this file is that disk_read and disk_write
+ * abstract away the bits that go read from the RAID partition or from the
+ * LVM inside the RAID.  Later, it will be possible to specify a 'chain' of
+ * procedures to call (i.e.,
+ * "raid:storagefixa:storagefixb:storagefixc,lvm:storage/storage0"), but for
+ * now the access methods will be hardcoded.
+ *
+ * Eventually, there will be a mechanism by which to mark sectors as
+ * "insane" (disk_insane()?), which will by some indeterminate mechanism
+ * cause the caller to retry the read with a different path to disk (or
+ * cause the caller to just report the sector in question as inaccessible).
+ */
+
 #define _LARGEFILE64_SOURCE
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -25,7 +38,7 @@ struct exception {
 
 static struct exception *exns = NULL;
 
-static int exception_lookup(sector_t s, uint8_t *buf)
+static int _exception_lookup(sector_t s, uint8_t *buf)
 {
 	struct exception *exn;
 	
@@ -40,13 +53,13 @@ static int exception_lookup(sector_t s, uint8_t *buf)
 	return 0;
 }
 
-int read_sector(sector_t s, uint8_t *buf)
+int disk_read_sector(sector_t s, uint8_t *buf)
 {
 	/* XXX generalize as needed? */
 	/* XXX this sucks */
 	static unsigned int fd = -1;
 	
-	if (exception_lookup(s, buf))
+	if (_exception_lookup(s, buf))
 		return 0;
 	
 	if (fd == -1)
@@ -60,7 +73,7 @@ int read_sector(sector_t s, uint8_t *buf)
 	return 0;
 }
 
-static void dirty_stats()
+static void _dirty_stats()
 {
 	int i = 0;
 	struct exception *exn;
@@ -70,13 +83,13 @@ static void dirty_stats()
 	printf("%d dirty sectors, comprising %d bytes\n", i, i*BYTES_PER_SECTOR);
 }
 
-int write_sector(sector_t s, uint8_t *buf)
+int disk_write_sector(sector_t s, uint8_t *buf)
 {
 	struct exception *exn, *exnp;
 	
 	if (!exns)
 	{
-		atexit(dirty_stats);
+		atexit(_dirty_stats);
 	}
 	
 	exn = malloc(sizeof(*exn));
