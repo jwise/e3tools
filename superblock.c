@@ -29,7 +29,7 @@ void superblock_show(struct ext2_super_block *sb)
 	printf("\tFragments per    : %d\n", sb->s_frags_per_group);
 	printf("\tInodes per       : %d\n", sb->s_inodes_per_group);
 	if (sb->s_feature_ro_compat & EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER)
-		printf("\tSuperblocks are SPARSE! Available at block groups 0, 1, powers of 3, powers of 5, powers of 7.\n");
+		printf("\tSuperblocks are sparse -- available at block groups 0, 1, powers of 3, powers of 5, powers of 7.\n");
 	printf("\n");
 	if (sb->s_log_block_size < 1)
 	{
@@ -38,6 +38,6 @@ void superblock_show(struct ext2_super_block *sb)
 	}
 	
 	printf("OK, so expect:\n");
-	printf("\tBlock groups         : %d\n", sb->s_blocks_count / sb->s_blocks_per_group);
+	printf("\tFull block groups      : %d\n", sb->s_blocks_count / sb->s_blocks_per_group);
 	printf("\t   (Blocks left over?) : %d\n", sb->s_blocks_count % sb->s_blocks_per_group);
 }

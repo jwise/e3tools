@@ -5,7 +5,7 @@
 #include <linux/ext2_fs.h>
 
 #define SB_BLOCK_SIZE(sb) (1024 << (sb)->s_log_block_size)
-#define SB_GROUPS(sb) ((sb)->s_blocks_count / (sb)->s_blocks_per_group)
+#define SB_GROUPS(sb) ((sb)->s_blocks_count / (sb)->s_blocks_per_group + !!((sb)->s_blocks_count % (sb)->s_blocks_per_group))
 extern void superblock_show(struct ext2_super_block *sb);
 
 #endif
