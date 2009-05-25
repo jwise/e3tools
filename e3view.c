@@ -73,12 +73,18 @@ void inode_table_show(struct ext2_super_block *sb, int bg)
 			case 0xC000: ftype = "socket"; break;
 			default: ftype = "bogus file type!"; break;
 			}
-			printf("\t\tMode   : %04X (%s, %o)%s\n", inode->i_mode, ftype, inode->i_mode & 07777,
+			printf("\t\tMode       : %04X (%s, %o)%s\n", inode->i_mode, ftype, inode->i_mode & 07777,
 				(((inode->i_mode) & 0xF000 == 0) && inode->i_mode) ? " (looks bogus!)" : "");
-			printf("\t\tLinks  : %d%s\n", inode->i_links_count,
+			printf("\t\tLinks      : %d%s\n", inode->i_links_count,
 				(inode->i_links_count > 1024) ? " (looks bogus!)" : "");
-			printf("\t\tBlocks : %d\n", inode->i_blocks);
-			printf("\t\tFlags  : ");
+			printf("\t\tSize       : %d\n", inode->i_size);
+			printf("\t\t# Blocks   : %d\n", inode->i_blocks);
+			printf("\t\tBlock list : %d %d %d %d %d %d %d %d %d %d %d %d *%d **%d ***%d\n",
+				inode->i_block[0], inode->i_block[1], inode->i_block[2], inode->i_block[3], 
+				inode->i_block[4], inode->i_block[5], inode->i_block[6], inode->i_block[7], 
+				inode->i_block[8], inode->i_block[9], inode->i_block[10], inode->i_block[11], 
+				inode->i_block[12], inode->i_block[13], inode->i_block[14]);
+			printf("\t\tFlags      : ");
 			if (inode->i_flags & 0x00000001)
 				printf("secrm ");
 			if (inode->i_flags & 0x00000002)
