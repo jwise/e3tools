@@ -27,6 +27,64 @@
 #include "blockgroup.h"
 #include "inode.h"
 
+void ls(struct ext2_super_block *sb, int ino, int rec, char *hdr)
+{
+	struct ifile *ifp;
+	char lol[32768];	/* XXX */
+	struct lld {		/* XXX */
+		uint32_t inode;
+		uint16_t rec_len;
+		unsigned char name_len;
+		char file_type;
+		char name[256];
+	};
+	struct lld *lld;
+	int totpos = 0;
+	int totlen;
+	char *rechdr = malloc(strlen(hdr) + 3);
+	strcpy(rechdr, hdr);
+	strcat(rechdr, "  ");
+	
+	ifp = ifile_open(sb, ino);
+	if (!ifp)
+	{
+		printf("open failure!\n");
+		return;
+	}
+	totlen = ifile_read(ifp, lol, 32768);
+	
+	while (totpos < totlen)
+	{
+		lld = (struct lld *)(lol + totpos);
+		totpos += lld->rec_len;
+		char fname[256];
+		
+		strncpy(fname, lld->name, lld->name_len);
+		fname[lld->name_len] = 0;
+		
+		switch (lld->file_type)
+		{
+		case 0:
+			printf("%s%d bytes padding\n", hdr, lld->rec_len);
+			break;
+		case 1:
+			printf("%s[FIL@%d] %s\n", hdr, lld->inode, fname);
+			break;
+		case 2:
+			printf("%s[DIR@%d] %s\n", hdr, lld->inode, fname);
+			if (rec && strcmp(fname, ".") && strcmp(fname, ".."))
+				ls(sb, lld->inode, 1, rechdr);
+			break;
+		default:
+			printf("%s[???@%d] %s\n", hdr, lld->inode, fname);
+			break;
+		}
+	}
+	
+	ifile_close(ifp);
+	free(rechdr);
+}
+
 int main(int argc, char **argv)
 {
 	struct ext2_super_block sb;
@@ -38,6 +96,7 @@ int main(int argc, char **argv)
 	int check_itable = 0;
 	int show_itable = -1;
 	int show_inode = -1;
+	int ls_inode = -1;
 	int i;
 	
 	printf("e3view " VERSION "\n"
@@ -45,7 +104,7 @@ int main(int argc, char **argv)
 	       "Using it without care might make your drive into one of them. Create an\n"
 	       "LVM snapshot before using this program.\n\n");
 	
-	while ((opt = getopt(argc, argv, "n:sdDTt:i:")) != -1)
+	while ((opt = getopt(argc, argv, "n:sdDTt:i:l:")) != -1)
 	{
 		switch (opt)
 		{
@@ -70,8 +129,11 @@ int main(int argc, char **argv)
 		case 'i':
 			show_inode = strtoll(optarg, NULL, 0);
 			break;
+		case 'l':
+			ls_inode = strtoll(optarg, NULL, 0);
+			break;
 		default:
-			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d] [-D] [-t block_group] [-T] [-i inode]\n", argv[0]);
+			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d] [-D] [-t block_group] [-T] [-i inode] [-l inode]\n", argv[0]);
 			printf("-n causes the superblock to be read from an alternate location\n");
 			printf("-s enables printing of Superblock information\n");
 			printf("-d enables printing of block group Descriptor information\n");
@@ -79,6 +141,7 @@ int main(int argc, char **argv)
 			printf("-T enables check/salvage of inode table information\n");
 			printf("-t displays the contents of a block group's inode table\n");
 			printf("-i displays the contents of an inode\n");
+			printf("-l gives a recursive 'ls' of a directory inode\n");
 			exit(1);
 		}
 	}
@@ -123,53 +186,13 @@ int main(int argc, char **argv)
 		struct ext2_inode inode;
 		inode_find(&sb, show_inode, &inode);
 		inode_print(&sb, &inode, show_inode);
-
-#if 0
-		struct ifile *ifp;
-		char lol[32768];
-		struct lld {
-			uint32_t inode;
-			uint16_t rec_len;
-			unsigned char name_len;
-			char file_type;
-			char name[256];
-		};
-		struct lld *lld;
-		int totpos = 0;
-		int totlen;
-		
-		ifp = ifile_open(&sb, show_inode);
-		printf("returned %p\n", ifp);
-		printf("ifile read returned %d\n", totlen = ifile_read(ifp, lol, 32768));
-		
-		while (totpos < totlen)
-		{
-			lld = (struct lld *)(lol + totpos);
-			totpos += lld->rec_len;
-			char fname[256];
-			
-			strncpy(fname, lld->name, lld->name_len);
-			fname[lld->name_len] = 0;
-			
-			switch (lld->file_type)
-			{
-			case 0:
-				printf("%d bytes padding\n", lld->rec_len);
-				break;
-			case 1:
-				printf("[FIL@%d] %s\n", lld->inode, fname);
-				break;
-			case 2:
-				printf("[DIR@%d] %s\n", lld->inode, fname);
-				break;
-			default:
-				printf("[???@%d] %s\n", lld->inode, fname);
-				break;
-			}
-		}
-		
-		ifile_close(ifp);
-#endif
+	}
+	
+	if (ls_inode >= 0)
+	{
+		struct ext2_inode inode;
+		inode_find(&sb, ls_inode, &inode);
+		ls(&sb, ls_inode, 1, "");
 	}
 	
 	return 0;
