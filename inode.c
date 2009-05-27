@@ -12,6 +12,7 @@
 #include "diskio.h"
 #include "superblock.h"
 #include "blockgroup.h"
+#include "inode.h"
 
 void inode_print(struct ext2_super_block *sb, struct ext2_inode *inode, int ino)
 {
@@ -157,4 +158,165 @@ void inode_table_check(struct ext2_super_block *sb, int bg)
 		curblock++;
 	}
 	printf("Inode table from block group %d: %d OK inodes, %d bogus inodes\n", bg, ok, bogus);
+}
+
+struct ifile {
+	struct ext2_super_block *sb;
+	struct ext2_inode inode;
+	block_t curblock;
+	int blockofs;
+};
+
+struct ifile *ifile_open(struct ext2_super_block *sb, int ino)
+{
+	struct ifile *ifp = malloc(sizeof(*ifp));
+	
+	if (!ifp)
+		return NULL;
+	
+	if (inode_find(sb, ino, &ifp->inode) < 0)
+	{
+		free(ifp);
+		return NULL;
+	}
+	
+	ifp->sb = sb;
+	ifp->curblock = 0;
+	ifp->blockofs = 0;
+	
+	return ifp;
+}
+
+static block_t _iblock_lookup(struct ext2_super_block *sb, struct ext2_inode *inode, int blockno)
+{
+	block_t *block = alloca(SB_BLOCK_SIZE(sb));
+	int perblk = SB_BLOCK_SIZE(sb) / sizeof(block_t);
+	int origblockno = blockno;
+	
+	/* Direct block? */
+	if (blockno < INODE_INDIRECT1)
+		return inode->i_block[blockno];
+	
+	/* Well, maybe in a first-level indirect block? */
+	blockno -= INODE_INDIRECT1;
+	if (blockno < perblk)
+	{
+		if (inode->i_block[INODE_INDIRECT1] == 0)	/* Ha! Gotcha! */
+			return 0;
+		if (disk_read_block(sb, inode->i_block[INODE_INDIRECT1], (uint8_t *)block) < 0)
+		{
+			perror("disk_read_block(INDIRECT1)");
+			return;
+		}
+		return block[blockno];
+	}
+	
+	/* How about in a second-level indirect block? */
+	blockno -= perblk;
+	if (blockno < (perblk * perblk))
+	{
+		if (inode->i_block[INODE_INDIRECT2] == 0)	/* Ha! Gotcha! */
+			return 0;
+		if (disk_read_block(sb, inode->i_block[INODE_INDIRECT2], (uint8_t *)block) < 0)
+		{
+			perror("disk_read_block(INDIRECT2)");
+			return;
+		}
+		
+		if (block[blockno / perblk] == 0)		/* Ha! Gotcha !*/
+			return 0;
+		if (disk_read_block(sb, block[blockno / perblk], (uint8_t *)block) < 0)
+		{
+			perror("disk_read_block(*INDIRECT2)");
+			return;
+		}
+		return block[blockno % perblk];
+	}
+	
+	/* Maybe a third level indirect block? */
+	blockno -= perblk * perblk;
+	if (blockno < (perblk * perblk * perblk))
+	{
+		if (inode->i_block[INODE_INDIRECT3] == 0)	/* Ha! Gotcha! */
+			return 0;
+		if (disk_read_block(sb, inode->i_block[INODE_INDIRECT3], (uint8_t *)block) < 0)
+		{
+			perror("disk_read_block(INDIRECT3)");
+			return;
+		}
+		
+		if (block[blockno / (perblk * perblk)] == 0)	/* Ha! Gotcha !*/
+			return 0;
+		if (disk_read_block(sb, block[blockno / (perblk * perblk)], (uint8_t *)block) < 0)
+		{
+			perror("disk_read_block(*INDIRECT3)");
+			return;
+		}
+		
+		if (block[blockno % (perblk * perblk)] == 0)	/* Ha! Gotcha !*/
+			return 0;
+		if (disk_read_block(sb, block[blockno % (perblk * perblk)], (uint8_t *)block) < 0)
+		{
+			perror("disk_read_block(**INDIRECT3)");
+			return;
+		}
+		return block[blockno % perblk];
+	}
+	
+	printf("_iblock_lookup: WTF? requested blockno %d is not in either the inode, the first level indirect, the second level indirect, *or* the third level indirect...\n", origblockno);
+	return 0;
+}
+
+int ifile_read(struct ifile *ifp, char *buf, int len)
+{
+	int rlen = 0;
+	int blocksz = SB_BLOCK_SIZE(ifp->sb);
+	uint64_t curpos = U64(ifp->curblock) * U64(blocksz) + U64(ifp->blockofs);
+	uint64_t flen = INODE_FILE_SIZE(&ifp->inode);
+	uint8_t *block = alloca(SB_BLOCK_SIZE(ifp->sb));
+	
+	while (len)
+	{
+		block_t diskblock;
+		int nbytes = blocksz - ifp->blockofs;	/* We can transfer a maximum of one block each go. */
+		
+		if ((curpos + U64(nbytes)) > flen)
+			nbytes = flen - curpos;
+		if (nbytes > len)
+			nbytes = len;
+		if (nbytes == 0)
+			break;
+		
+		/* Next up, see if we can find the block in the inode's table. */
+		diskblock = _iblock_lookup(ifp->sb, &ifp->inode, ifp->curblock);
+		if (diskblock == 0)	/* Sparse block -- fill in the blanks */
+		{
+			memset(buf, 0, nbytes);
+			buf += nbytes;
+		} else {
+			if (disk_read_block(ifp->sb, diskblock, block) < 0)
+			{
+				perror("disk_read_block");
+				return -1;
+			}
+			memcpy(buf, block + ifp->blockofs, nbytes);
+			buf += nbytes;
+		}
+		
+		ifp->blockofs += nbytes;
+		if (ifp->blockofs == blocksz)
+		{
+			ifp->blockofs = 0;
+			ifp->curblock++;
+		}
+		curpos += nbytes;
+		rlen += nbytes;
+		len -= nbytes;
+	}
+	return rlen;
+}
+
+void ifile_close(struct ifile *ifp)
+{
+	free(ifp);
 }

@@ -123,6 +123,53 @@ int main(int argc, char **argv)
 		struct ext2_inode inode;
 		inode_find(&sb, show_inode, &inode);
 		inode_print(&sb, &inode, show_inode);
+
+#if 0
+		struct ifile *ifp;
+		char lol[32768];
+		struct lld {
+			uint32_t inode;
+			uint16_t rec_len;
+			unsigned char name_len;
+			char file_type;
+			char name[256];
+		};
+		struct lld *lld;
+		int totpos = 0;
+		int totlen;
+		
+		ifp = ifile_open(&sb, show_inode);
+		printf("returned %p\n", ifp);
+		printf("ifile read returned %d\n", totlen = ifile_read(ifp, lol, 32768));
+		
+		while (totpos < totlen)
+		{
+			lld = (struct lld *)(lol + totpos);
+			totpos += lld->rec_len;
+			char fname[256];
+			
+			strncpy(fname, lld->name, lld->name_len);
+			fname[lld->name_len] = 0;
+			
+			switch (lld->file_type)
+			{
+			case 0:
+				printf("%d bytes padding\n", lld->rec_len);
+				break;
+			case 1:
+				printf("[FIL@%d] %s\n", lld->inode, fname);
+				break;
+			case 2:
+				printf("[DIR@%d] %s\n", lld->inode, fname);
+				break;
+			default:
+				printf("[???@%d] %s\n", lld->inode, fname);
+				break;
+			}
+		}
+		
+		ifile_close(ifp);
+#endif
 	}
 	
 	return 0;
