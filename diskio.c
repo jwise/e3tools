@@ -98,7 +98,7 @@ static void _dirty_stats()
 	
 	for (exn = exns; exn; exn = exn->next)
 		i++;
-	printf("%d dirty sectors, comprising %d bytes\n", i, i*BYTES_PER_SECTOR);
+	printf("%d dirty sectors, comprising %lld bytes\n", i, i*BYTES_PER_SECTOR);
 }
 
 int disk_write_sector(sector_t s, uint8_t *buf)
