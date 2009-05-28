@@ -59,18 +59,68 @@ int disk_read_sector(sector_t s, uint8_t *buf)
 {
 	/* XXX generalize as needed? */
 	/* XXX this sucks */
-	static unsigned int fd = -1;
-	
+	unsigned int i;
+        char tmp[16];
+        int pd_idx, dd_idx;
+        long stripe;
+        unsigned long chunk_number;
+        unsigned int chunk_offset;
+        sector_t new_sector;
+        
+        /* XXX hurrrr (these should be derived elsewhere): */
+        int chunk_size = 65536;
+        int sectors_per_chunk = chunk_size >> 9;        /* ... ahahahaha no. */
+        unsigned int raid_disks = 3;                  
+        unsigned int data_disks = 2;                    /* is this true? */
+
+        static unsigned int fd[3] = {-1, -1, -1};       
+
 	if (_exception_lookup(s, buf))
 		return 0;
-	
-	if (fd == -1)
-		fd = open("recover"/*/dev/storage/storage0"*/, O_RDONLY);
-	if (fd == -1)	/* Still? */
+
+        /* open... */
+	for(i = 0; i < raid_disks; i++)
+	{
+                snprintf(tmp, sizeof(tmp), "/dev/loop%d", i);
+		if (fd[i] == -1)
+                        fd[i] = open(tmp, O_RDONLY);
+		if (fd[i] == -1)	/* Still? */
+                {
+			while(i--)
+                                close(fd[i]);
+                        return -1;	/* oh well */
+                }
+	}
+
+        /* lvm offset */
+	s += (sector_t)384;
+        
+        /* begin some hideousness that should probably be ripped out into
+         * another function, and heavily ganked from
+         * linux-source-$foo/drivers/md/raid5.c:raid5_compute_sector() */
+        chunk_offset = s % sectors_per_chunk;
+        s /= sectors_per_chunk;
+        chunk_number = s;
+
+        stripe = chunk_number / data_disks;
+        dd_idx = chunk_number % data_disks;
+
+        /* XXX ASLKDfja;lkfja;sdlkfjas;df 
+         * Somewhere, somehow, the relevant algorithm is stored on the disk
+         * along with other metadata (I assume). After fighting with linux 
+         * source for a while I am writing in the default case 
+         * (ALGORITHM_LEFT_SYMMETRIC). Joshua probably knows where to find 
+         * this data. Ideally the other cases would be plopped in here later. 
+         * drivers/md/md.c:mddev_find() may be of interest/use? */
+        pd_idx = data_disks - stripe % raid_disks;
+        dd_idx = (pd_idx + 1 + dd_idx) % raid_disks;
+        
+        new_sector = (sector_t)stripe * sectors_per_chunk + chunk_offset;
+
+        /* even this is uncertain! */
+        if (lseek64(fd[dd_idx], new_sector * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
 		return -1;	/* oh well */
-	if (lseek64(fd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
-		return -1;	/* oh well */
-	if (read(fd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
+	if (read(fd[dd_idx], buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
 		return -1;
 	return 0;
 }
