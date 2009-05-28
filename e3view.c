@@ -59,6 +59,12 @@ void ls(struct ext2_super_block *sb, int ino, int rec, char *hdr)
 		totpos += lld->rec_len;
 		char fname[256];
 		
+		if (lld->rec_len == 0)
+		{
+			printf("%sYIKES that looks bad! rec_len = 0?\n", hdr);
+			break;
+		}
+		
 		strncpy(fname, lld->name, lld->name_len);
 		fname[lld->name_len] = 0;
 		
