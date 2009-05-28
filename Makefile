@@ -1,4 +1,4 @@
-SOURCES = diskio.c e3view.c superblock.c blockgroup.c
+SOURCES = diskio.c e3view.c superblock.c blockgroup.c inode.c
 OBJS = $(SOURCES:.c=.o)
 CC = gcc
 CFLAGS ?= -O2

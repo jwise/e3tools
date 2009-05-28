@@ -25,7 +25,7 @@ block_t block_group_inode_table_block(struct ext2_super_block *sb, int bg)
 	{
 		fflush(stdout);
 		perror("read_sector");
-		return;
+		return -1;
 	}
 	
 	return sect[bg % (BYTES_PER_SECTOR / sizeof(struct ext2_group_desc))].bg_inode_table;
@@ -43,10 +43,10 @@ void block_group_desc_table_show(struct ext2_super_block *sb)
 	printf("Block descriptor table from block group %d\n", sb->s_block_group_nr);
 	printf("Starts on block %d\n", sb->s_block_group_nr * sb->s_blocks_per_group + 1);
 	sector = (sb->s_block_group_nr * sb->s_blocks_per_group + 1LL) * (sector_t)sectors_per_block;
-	printf("  ... or sector %d\n", sector);
+	printf("  ... or sector %lld\n", sector);
 	printf("Expecting %d block groups\n", bgs);
 	printf("Expecting %d bytes of block group\n", sizeof(struct ext2_group_desc) * (bgs));
-	printf("Expecting %d sectors of block group\n", sizeof(struct ext2_group_desc) * (bgs) / BYTES_PER_SECTOR);
+	printf("Expecting %lld sectors of block group\n", sizeof(struct ext2_group_desc) * (bgs) / BYTES_PER_SECTOR);
 	printf("Expecting %d blocks of block group\n", sizeof(struct ext2_group_desc) * (bgs) / bytes_per_block);
 	printf("OK, let's do this!\n");
 	printf("\n");
@@ -92,7 +92,6 @@ void block_group_desc_table_show(struct ext2_super_block *sb)
 void block_group_desc_table_repair(struct ext2_super_block *sb)
 {
 	int bgs = sb->s_blocks_count / sb->s_blocks_per_group;
-	int bytes_per_block = 1024 << sb->s_log_block_size;
 	int sectors_per_block = (1024 / BYTES_PER_SECTOR) << sb->s_log_block_size;
 	int curbg;
 	sector_t sector;
