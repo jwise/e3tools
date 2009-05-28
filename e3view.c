@@ -97,6 +97,7 @@ int main(int argc, char **argv)
 	int show_itable = -1;
 	int show_inode = -1;
 	int ls_inode = -1;
+	int ls_recursive = 0;
 	int i;
 	
 	printf("e3view " VERSION "\n"
@@ -104,7 +105,7 @@ int main(int argc, char **argv)
 	       "Using it without care might make your drive into one of them. Create an\n"
 	       "LVM snapshot before using this program.\n\n");
 	
-	while ((opt = getopt(argc, argv, "n:sdDTt:i:l:")) != -1)
+	while ((opt = getopt(argc, argv, "n:sdDTt:i:l:R")) != -1)
 	{
 		switch (opt)
 		{
@@ -132,8 +133,11 @@ int main(int argc, char **argv)
 		case 'l':
 			ls_inode = strtoll(optarg, NULL, 0);
 			break;
+		case 'R':
+			ls_recursive = 1;
+			break;
 		default:
-			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d] [-D] [-t block_group] [-T] [-i inode] [-l inode]\n", argv[0]);
+			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d] [-D] [-t block_group] [-T] [-i inode] [-l inode] [-R]\n", argv[0]);
 			printf("-n causes the superblock to be read from an alternate location\n");
 			printf("-s enables printing of Superblock information\n");
 			printf("-d enables printing of block group Descriptor information\n");
@@ -141,7 +145,8 @@ int main(int argc, char **argv)
 			printf("-T enables check/salvage of inode table information\n");
 			printf("-t displays the contents of a block group's inode table\n");
 			printf("-i displays the contents of an inode\n");
-			printf("-l gives a recursive 'ls' of a directory inode\n");
+			printf("-l gives a 'ls' of a directory inode\n");
+			printf("-R makes 'ls' recursive\n");
 			exit(1);
 		}
 	}
@@ -192,7 +197,7 @@ int main(int argc, char **argv)
 	{
 		struct ext2_inode inode;
 		inode_find(&sb, ls_inode, &inode);
-		ls(&sb, ls_inode, 1, "");
+		ls(&sb, ls_inode, ls_recursive, "");
 	}
 	
 	return 0;
