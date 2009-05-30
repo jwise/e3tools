@@ -3,16 +3,17 @@
 
 #include <stdint.h>
 
+#include "e3tools.h"
 #include "blockgroup.h"
 
 struct ifile;	// opaque; defined in inode.c
 
-extern void inode_table_show(struct ext2_super_block *sb, int bg);
-void inode_table_check(struct ext2_super_block *sb, int bg);
-void inode_print(struct ext2_super_block *sb, struct ext2_inode *inode, int ino);
-int inode_find(struct ext2_super_block *sb, int ino, struct ext2_inode *inode);
+extern void inode_table_show(e3tools_t *e3t, int bg);
+void inode_table_check(e3tools_t *e3t, int bg);
+void inode_print(e3tools_t *e3t, struct ext2_inode *inode, int ino);
+int inode_find(e3tools_t *e3t, int ino, struct ext2_inode *inode);
 
-struct ifile *ifile_open(struct ext2_super_block *sb, int ino);
+struct ifile *ifile_open(e3tools_t *e3t, int ino);
 int ifile_read(struct ifile *ifp, char *buf, int len);
 void ifile_close(struct ifile *ifp);
 
