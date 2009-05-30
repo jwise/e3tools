@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "e3tools.h"
 #include "diskio.h"
 #include "e3bits.h"
 #include "superblock.h"
@@ -93,8 +94,7 @@ void ls(struct ext2_super_block *sb, int ino, int rec, char *hdr)
 
 int main(int argc, char **argv)
 {
-	struct ext2_super_block sb;
-	sector_t sbsector = 2;
+	e3tools_t e3t;
 	int opt;
 	int print_sb = 0;
 	int print_bgd = 0;
@@ -110,14 +110,17 @@ int main(int argc, char **argv)
 	       "This program does really dangerous things to really badly hosed drives.\n"
 	       "Using it without care might make your drive into one of them. Create an\n"
 	       "LVM snapshot before using this program.\n\n");
+	      
+	if (e3tools_init(&e3t, &argc, &argv) < 0)
+	{
+		printf("e3tools initialization failed -- bailing out\n");
+		return 1;
+	}
 	
-	while ((opt = getopt(argc, argv, "n:sdDTt:i:l:R")) != -1)
+	while ((opt = getopt(argc, argv, "sdDTt:i:l:R")) != -1)
 	{
 		switch (opt)
 		{
-		case 'n':
-			sbsector = strtoll(optarg, NULL, 0);
-			break;
 		case 's':
 			print_sb = 1;
 			break;
@@ -157,53 +160,46 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	printf("Reading superblock from sector %lld.\n", sbsector);
-	if (disk_read_sector(sbsector, (uint8_t*)&sb) < 0)
-	{
-		perror("read_sector");
-		return 1;
-	}
-	
 	if (print_sb)
 	{
 		printf("Dumping superblock.\n");
-		superblock_show(&sb);
+		superblock_show(&e3t.sb);
 		printf("\n");
 	}
 	
 	if (print_bgd)
 	{
 		printf("Dumping block group descriptor table.\n");
-		block_group_desc_table_show(&sb);
+		block_group_desc_table_show(&e3t.sb);
 		printf("\n");
 	}
 	
 	if (repair_bgd)
 	{
 		printf("Repairing block group descriptor table as needed.\n");
-		block_group_desc_table_repair(&sb);
+		block_group_desc_table_repair(&e3t.sb);
 		printf("\n");
 	}
 	
 	if (show_itable >= 0)
-		inode_table_show(&sb, show_itable);
+		inode_table_show(&e3t.sb, show_itable);
 	
 	if (check_itable)
-		for (i = 0; i < SB_GROUPS(&sb); i++)
-			inode_table_check(&sb, i);
+		for (i = 0; i < SB_GROUPS(&e3t.sb); i++)
+			inode_table_check(&e3t.sb, i);
 	
 	if (show_inode >= 0)
 	{
 		struct ext2_inode inode;
-		inode_find(&sb, show_inode, &inode);
-		inode_print(&sb, &inode, show_inode);
+		inode_find(&e3t.sb, show_inode, &inode);
+		inode_print(&e3t.sb, &inode, show_inode);
 	}
 	
 	if (ls_inode >= 0)
 	{
 		struct ext2_inode inode;
-		inode_find(&sb, ls_inode, &inode);
-		ls(&sb, ls_inode, ls_recursive, "");
+		inode_find(&e3t.sb, ls_inode, &inode);
+		ls(&e3t.sb, ls_inode, ls_recursive, "");
 	}
 	
 	return 0;
