@@ -38,13 +38,11 @@ struct exception {
 	struct exception *next;
 };
 
-static struct exception *exns = NULL;
-
-static int _exception_lookup(sector_t s, uint8_t *buf)
+static int _exception_lookup(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	struct exception *exn;
 	
-	for (exn = exns; exn && (exn->sector < s); exn = exn->next)
+	for (exn = e3t->exceptions; exn && (exn->sector < s); exn = exn->next)
 		;
 	
 	if (exn && (exn->sector == s))
@@ -59,18 +57,16 @@ int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	/* XXX generalize as needed? */
 	/* XXX this sucks */
-	static unsigned int fd = -1;
-	
-	if (_exception_lookup(s, buf))
+	if (_exception_lookup(e3t, s, buf))
 		return 0;
 	
-	if (fd == -1)
-		fd = open("recover"/*/dev/storage/storage0"*/, O_RDONLY);
-	if (fd == -1)	/* Still? */
+	if (e3t->diskfd == -1)
+		e3t->diskfd = open("recover"/*/dev/storage/storage0"*/, O_RDONLY);
+	if (e3t->diskfd == -1)	/* Still? */
 		return -1;	/* oh well */
-	if (lseek64(fd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
+	if (lseek64(e3t->diskfd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
 		return -1;	/* oh well */
-	if (read(fd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
+	if (read(e3t->diskfd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
 		return -1;
 	return 0;
 }
@@ -91,35 +87,20 @@ int disk_read_block(e3tools_t *e3t, block_t b, uint8_t *buf)
 	return 0;
 }
 
-static void _dirty_stats()
-{
-	int i = 0;
-	struct exception *exn;
-	
-	for (exn = exns; exn; exn = exn->next)
-		i++;
-	printf("%d dirty sectors, comprising %lld bytes\n", i, i*BYTES_PER_SECTOR);
-}
-
 int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	struct exception *exn, *exnp;
-	
-	if (!exns)
-	{
-		atexit(_dirty_stats);
-	}
-	
+
 	exn = malloc(sizeof(*exn));
 	if (!exn)
 		return -1;
 	
-	for (exnp = exns; exnp && (exnp->sector != s) && exnp->next && (exnp->next->sector < s); exnp = exnp->next)
+	for (exnp = e3t->exceptions; exnp && (exnp->sector != s) && exnp->next && (exnp->next->sector < s); exnp = exnp->next)
 		;
 		
-	if (!exns)
+	if (!e3t->exceptions)
 	{
-		exns = exn;
+		e3t->exceptions = exn;
 		exn->next = NULL;
 	} else if (exnp->sector == s) {
 		free(exn);	// No linked list update needed.
@@ -134,4 +115,17 @@ int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 	exn->sector = s;
 
 	return 0;
+}
+
+int disk_close(e3tools_t *e3t)
+{
+	int i = 0;
+	struct exception *exn;
+	
+	for (exn = e3t->exceptions; exn; exn = exn->next)
+		i++;
+	if (e3t->diskfd >= 0)
+		close(e3t->diskfd);
+	if (i > 0)
+		printf("%d dirty sectors, comprising %lld bytes\n", i, i*BYTES_PER_SECTOR);
 }

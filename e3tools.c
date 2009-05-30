@@ -25,6 +25,9 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 {
 	sector_t sbsector = 2;
 	
+	e3t->exceptions = NULL;
+	e3t->diskfd = -1;
+	
 	/* I do not like this 'nomming options' thing, since it means I have
 	 * to essentially reinvent getopt.  It appears to be what gtk does
 	 * though, with gtk_parse_args.  Megaloss. */
