@@ -21,7 +21,7 @@ block_t block_group_inode_table_block(e3tools_t *e3t, int bg)
 	
 	sector += (bg * sizeof(struct ext2_group_desc)) / BYTES_PER_SECTOR;
 	
-	if (disk_read_sector(sector, (uint8_t *)sect) < 0)
+	if (disk_read_sector(e3t, sector, (uint8_t *)sect) < 0)
 	{
 		fflush(stdout);
 		perror("read_sector");
@@ -57,7 +57,7 @@ void block_group_desc_table_show(e3tools_t *e3t)
 		if (pos == 0)
 		{
 			printf("Reading from new sector: %lld\n", sector);
-			if (disk_read_sector(sector, (uint8_t *)sect) < 0)
+			if (disk_read_sector(e3t, sector, (uint8_t *)sect) < 0)
 			{
 				fflush(stdout);
 				perror("read_sector");
@@ -108,7 +108,7 @@ void block_group_desc_table_repair(e3tools_t *e3t)
 			{
 				sector--;
 				printf("Writing back to repaired sector: %lld (%d changes)\n", sector, dirty);
-				if (disk_write_sector(sector, (uint8_t *)sect) < 0)
+				if (disk_write_sector(e3t, sector, (uint8_t *)sect) < 0)
 				{
 					fflush(stdout);
 					perror("write_sector");
@@ -117,7 +117,7 @@ void block_group_desc_table_repair(e3tools_t *e3t)
 				sector++;
 				dirty = 0;
 			}
-			if (disk_read_sector(sector, (uint8_t *)sect) < 0)
+			if (disk_read_sector(e3t, sector, (uint8_t *)sect) < 0)
 			{
 				fflush(stdout);
 				perror("read_sector");

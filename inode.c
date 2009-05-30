@@ -86,7 +86,7 @@ int inode_find(e3tools_t *e3t, int ino, struct ext2_inode *inode)
 	int offset = e3t->sb.s_inode_size * ((ino - 1) % inodes_per_block);
 	uint8_t *block = alloca(SB_BLOCK_SIZE(&e3t->sb));
 	
-	if (disk_read_block(&e3t->sb, curblock, (uint8_t *)block) < 0)
+	if (disk_read_block(e3t, curblock, (uint8_t *)block) < 0)
 	{
 		perror("disk_read_block");
 		return -1;
@@ -111,7 +111,7 @@ void inode_table_show(e3tools_t *e3t, int bg)
 	for (b = 0; b < blocks; b++)
 	{
 		int i;
-		if (disk_read_block(&e3t->sb, curblock, (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, curblock, (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block");
 			return;
@@ -141,7 +141,7 @@ void inode_table_check(e3tools_t *e3t, int bg)
 	for (b = 0; b < blocks; b++)
 	{
 		int i;
-		if (disk_read_block(&e3t->sb, curblock, (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, curblock, (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block");
 			return;
@@ -204,7 +204,7 @@ static block_t _iblock_lookup(e3tools_t *e3t, struct ext2_inode *inode, int bloc
 	{
 		if (inode->i_block[INODE_INDIRECT1] == 0)	/* Ha! Gotcha! */
 			return 0;
-		if (disk_read_block(&e3t->sb, inode->i_block[INODE_INDIRECT1], (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, inode->i_block[INODE_INDIRECT1], (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block(INDIRECT1)");
 			return;
@@ -218,7 +218,7 @@ static block_t _iblock_lookup(e3tools_t *e3t, struct ext2_inode *inode, int bloc
 	{
 		if (inode->i_block[INODE_INDIRECT2] == 0)	/* Ha! Gotcha! */
 			return 0;
-		if (disk_read_block(&e3t->sb, inode->i_block[INODE_INDIRECT2], (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, inode->i_block[INODE_INDIRECT2], (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block(INDIRECT2)");
 			return;
@@ -226,7 +226,7 @@ static block_t _iblock_lookup(e3tools_t *e3t, struct ext2_inode *inode, int bloc
 		
 		if (block[blockno / perblk] == 0)		/* Ha! Gotcha !*/
 			return 0;
-		if (disk_read_block(&e3t->sb, block[blockno / perblk], (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, block[blockno / perblk], (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block(*INDIRECT2)");
 			return;
@@ -240,7 +240,7 @@ static block_t _iblock_lookup(e3tools_t *e3t, struct ext2_inode *inode, int bloc
 	{
 		if (inode->i_block[INODE_INDIRECT3] == 0)	/* Ha! Gotcha! */
 			return 0;
-		if (disk_read_block(&e3t->sb, inode->i_block[INODE_INDIRECT3], (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, inode->i_block[INODE_INDIRECT3], (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block(INDIRECT3)");
 			return;
@@ -248,7 +248,7 @@ static block_t _iblock_lookup(e3tools_t *e3t, struct ext2_inode *inode, int bloc
 		
 		if (block[blockno / (perblk * perblk)] == 0)	/* Ha! Gotcha !*/
 			return 0;
-		if (disk_read_block(&e3t->sb, block[blockno / (perblk * perblk)], (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, block[blockno / (perblk * perblk)], (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block(*INDIRECT3)");
 			return;
@@ -256,7 +256,7 @@ static block_t _iblock_lookup(e3tools_t *e3t, struct ext2_inode *inode, int bloc
 		
 		if (block[blockno % (perblk * perblk)] == 0)	/* Ha! Gotcha !*/
 			return 0;
-		if (disk_read_block(&e3t->sb, block[blockno % (perblk * perblk)], (uint8_t *)block) < 0)
+		if (disk_read_block(e3t, block[blockno % (perblk * perblk)], (uint8_t *)block) < 0)
 		{
 			perror("disk_read_block(**INDIRECT3)");
 			return;
@@ -295,7 +295,7 @@ int ifile_read(struct ifile *ifp, char *buf, int len)
 			memset(buf, 0, nbytes);
 			buf += nbytes;
 		} else {
-			if (disk_read_block(&ifp->e3t->sb, diskblock, block) < 0)
+			if (disk_read_block(ifp->e3t, diskblock, block) < 0)
 			{
 				perror("disk_read_block");
 				return -1;

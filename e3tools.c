@@ -50,7 +50,7 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 	}
 	
 	E3DEBUG(E3TOOLS_PFX "Reading superblock from sector %lld.\n", sbsector);
-	if (disk_read_sector(sbsector, (uint8_t*)&e3t->sb) < 0)
+	if (disk_read_sector(e3t, sbsector, (uint8_t*)&e3t->sb) < 0)
 	{
 		perror("disk_read_sector(sbsector)");
 		return -1;

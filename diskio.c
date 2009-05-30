@@ -55,7 +55,7 @@ static int _exception_lookup(sector_t s, uint8_t *buf)
 	return 0;
 }
 
-int disk_read_sector(sector_t s, uint8_t *buf)
+int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	/* XXX generalize as needed? */
 	/* XXX this sucks */
@@ -75,15 +75,15 @@ int disk_read_sector(sector_t s, uint8_t *buf)
 	return 0;
 }
 
-int disk_read_block(struct ext2_super_block *sb, block_t b, uint8_t *buf)
+int disk_read_block(e3tools_t *e3t, block_t b, uint8_t *buf)
 {
 	int i;
 	sector_t s;
 	
-	s = ((sector_t)b) * ((sector_t)SB_BLOCK_SIZE(sb) / BYTES_PER_SECTOR);
-	for (i = 0; i < (SB_BLOCK_SIZE(sb) / BYTES_PER_SECTOR); i++)
+	s = ((sector_t)b) * ((sector_t)SB_BLOCK_SIZE(&e3t->sb) / BYTES_PER_SECTOR);
+	for (i = 0; i < (SB_BLOCK_SIZE(&e3t->sb) / BYTES_PER_SECTOR); i++)
 	{
-		if (disk_read_sector(s, buf) < 0)
+		if (disk_read_sector(e3t, s, buf) < 0)
 			return -1;
 		s++;
 		buf += BYTES_PER_SECTOR;
@@ -101,7 +101,7 @@ static void _dirty_stats()
 	printf("%d dirty sectors, comprising %lld bytes\n", i, i*BYTES_PER_SECTOR);
 }
 
-int disk_write_sector(sector_t s, uint8_t *buf)
+int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	struct exception *exn, *exnp;
 	
