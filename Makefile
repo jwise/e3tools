@@ -1,15 +1,27 @@
-SOURCES = diskio.c e3view.c superblock.c blockgroup.c inode.c e3tools.c
-OBJS = $(SOURCES:.c=.o)
+LIBSOURCES = lib/diskio.c lib/superblock.c lib/blockgroup.c lib/inode.c lib/e3tools.c
+LIBOBJS = $(LIBSOURCES:.c=.o)
+
+APPS = e3view
+
+DEPFILES = $(LIBSOURCES:.c=.d) $(APPS:=.d)
+
 CC = gcc
 CFLAGS ?= -O2
+CPPFLAGS += -Ilib
 
-e3view: $(OBJS)
-	gcc -o e3view $(OBJS)
+all: $(APPS)
+
+%: %.o lib/libe3tools.a
+	gcc -o $@ $< lib/libe3tools.a
+
+lib/libe3tools.a: $(LIBOBJS)
+	rm -f lib/libe3tools.a
+	ar rcs lib/libe3tools.a $(LIBOBJS)
 
 clean:
-	rm -f $(OBJS) e3view
+	rm -f $(LIBOBJS) $(APPS) $(APPS:=.o) $(DEPFILES)
 
 %.d: %.c
-	@$(CC) -M $(CPPFLAGS) $< | sed "s/$*.o/& $@/g" > $@
+	@$(CC) -M $(CPPFLAGS) $< | sed "s#$*.o#& $@#g" > $@
 
-include $(SOURCES:.c=.d)
+-include $(DEPFILES)
