@@ -96,8 +96,6 @@ int main(int argc, char **argv)
 {
 	e3tools_t e3t;
 	int opt;
-	int print_sb = 0;
-	int print_bgd = 0;
 	int repair_bgd = 0;
 	int check_itable = 0;
 	int show_itable = -1;
@@ -121,12 +119,6 @@ int main(int argc, char **argv)
 	{
 		switch (opt)
 		{
-		case 's':
-			print_sb = 1;
-			break;
-		case 'd':
-			print_bgd = 1;
-			break;
 		case 'D':
 			repair_bgd = 1;
 			break;
@@ -158,20 +150,6 @@ int main(int argc, char **argv)
 			e3tools_usage();
 			exit(1);
 		}
-	}
-	
-	if (print_sb)
-	{
-		printf("Dumping superblock.\n");
-		superblock_show(&e3t);
-		printf("\n");
-	}
-	
-	if (print_bgd)
-	{
-		printf("Dumping block group descriptor table.\n");
-		block_group_desc_table_show(&e3t);
-		printf("\n");
 	}
 	
 	if (repair_bgd)
