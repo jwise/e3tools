@@ -18,5 +18,6 @@ typedef struct e3tools {
 
 extern int e3tools_init(e3tools_t *e3t, int *argc, char ***argv);
 extern void e3tools_usage();
+extern void e3tools_close(e3tools_t *e3t);
 
 #endif

@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 		ls(&e3t, ls_inode, ls_recursive, "");
 	}
 	
-	disk_close(&e3t);
+	e3tools_close(&e3t);
 	
 	return 0;
 }

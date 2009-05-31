@@ -68,3 +68,8 @@ void e3tools_usage()
 	printf("--superblock <sector> chooses an alternative sector to read the filesystem's superblock from\n");
 	printf("          -n <sector>\n");
 }
+
+void e3tools_close(e3tools_t *e3t)
+{
+	disk_close(e3t);
+}

@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 	
 	superblock_show(&e3t);
 	
-	disk_close(&e3t);
+	e3tools_close(&e3t);
 	
 	return 0;
 }
