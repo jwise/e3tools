@@ -38,13 +38,11 @@ struct exception {
 	struct exception *next;
 };
 
-static struct exception *exns = NULL;
-
-static int _exception_lookup(sector_t s, uint8_t *buf)
+static int _exception_lookup(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	struct exception *exn;
 	
-	for (exn = exns; exn && (exn->sector < s); exn = exn->next)
+	for (exn = e3t->exceptions; exn && (exn->sector < s); exn = exn->next)
 		;
 	
 	if (exn && (exn->sector == s))
@@ -55,7 +53,7 @@ static int _exception_lookup(sector_t s, uint8_t *buf)
 	return 0;
 }
 
-int disk_read_sector(sector_t s, uint8_t *buf)
+int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	/* XXX generalize as needed? */
 	/* XXX this sucks */
@@ -73,21 +71,19 @@ int disk_read_sector(sector_t s, uint8_t *buf)
         unsigned int raid_disks = 3;                  
         unsigned int data_disks = 2;                    /* is this true? */
 
-        static unsigned int fd[3] = {-1, -1, -1};       
-
-	if (_exception_lookup(s, buf))
+	if (_exception_lookup(e3t, s, buf))
 		return 0;
 
         /* open... */
 	for(i = 0; i < raid_disks; i++)
 	{
                 snprintf(tmp, sizeof(tmp), "/dev/loop%d", i);
-		if (fd[i] == -1)
-                        fd[i] = open(tmp, O_RDONLY);
-		if (fd[i] == -1)	/* Still? */
+		if (e3t->diskfd[i] == -1)
+                        e3t->diskfd[i] = open(tmp, O_RDONLY);
+		if (e3t->diskfd[i] == -1)	/* Still? */
                 {
 			while(i--)
-                                close(fd[i]);
+                                close(e3t->diskfd[i]);
                         return -1;	/* oh well */
                 }
 	}
@@ -118,22 +114,22 @@ int disk_read_sector(sector_t s, uint8_t *buf)
         new_sector = (sector_t)stripe * sectors_per_chunk + chunk_offset;
 
         /* even this is uncertain! */
-        if (lseek64(fd[dd_idx], new_sector * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
+        if (lseek64(e3t->diskfd[dd_idx], new_sector * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
 		return -1;	/* oh well */
-	if (read(fd[dd_idx], buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
+	if (read(e3t->diskfd[dd_idx], buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
 		return -1;
 	return 0;
 }
 
-int disk_read_block(struct ext2_super_block *sb, block_t b, uint8_t *buf)
+int disk_read_block(e3tools_t *e3t, block_t b, uint8_t *buf)
 {
 	int i;
 	sector_t s;
 	
-	s = ((sector_t)b) * ((sector_t)SB_BLOCK_SIZE(sb) / BYTES_PER_SECTOR);
-	for (i = 0; i < (SB_BLOCK_SIZE(sb) / BYTES_PER_SECTOR); i++)
+	s = ((sector_t)b) * ((sector_t)SB_BLOCK_SIZE(&e3t->sb) / BYTES_PER_SECTOR);
+	for (i = 0; i < (SB_BLOCK_SIZE(&e3t->sb) / BYTES_PER_SECTOR); i++)
 	{
-		if (disk_read_sector(s, buf) < 0)
+		if (disk_read_sector(e3t, s, buf) < 0)
 			return -1;
 		s++;
 		buf += BYTES_PER_SECTOR;
@@ -141,35 +137,20 @@ int disk_read_block(struct ext2_super_block *sb, block_t b, uint8_t *buf)
 	return 0;
 }
 
-static void _dirty_stats()
-{
-	int i = 0;
-	struct exception *exn;
-	
-	for (exn = exns; exn; exn = exn->next)
-		i++;
-	printf("%d dirty sectors, comprising %lld bytes\n", i, i*BYTES_PER_SECTOR);
-}
-
-int disk_write_sector(sector_t s, uint8_t *buf)
+int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
 	struct exception *exn, *exnp;
-	
-	if (!exns)
-	{
-		atexit(_dirty_stats);
-	}
-	
+
 	exn = malloc(sizeof(*exn));
 	if (!exn)
 		return -1;
 	
-	for (exnp = exns; exnp && (exnp->sector != s) && exnp->next && (exnp->next->sector < s); exnp = exnp->next)
+	for (exnp = e3t->exceptions; exnp && (exnp->sector != s) && exnp->next && (exnp->next->sector < s); exnp = exnp->next)
 		;
 		
-	if (!exns)
+	if (!e3t->exceptions)
 	{
-		exns = exn;
+		e3t->exceptions = exn;
 		exn->next = NULL;
 	} else if (exnp->sector == s) {
 		free(exn);	// No linked list update needed.
@@ -184,4 +165,18 @@ int disk_write_sector(sector_t s, uint8_t *buf)
 	exn->sector = s;
 
 	return 0;
+}
+
+int disk_close(e3tools_t *e3t)
+{
+	int i = 0, n;
+	struct exception *exn;
+	
+	for (exn = e3t->exceptions; exn; exn = exn->next)
+		i++;
+	for (n = 0; n < 3; n++)
+		if (e3t->diskfd[n] >= 0)
+			close(e3t->diskfd[n]);
+	if (i > 0)
+		printf("%d dirty sectors, comprising %lld bytes\n", i, i*BYTES_PER_SECTOR);
 }

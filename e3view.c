@@ -21,13 +21,14 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "e3tools.h"
 #include "diskio.h"
 #include "e3bits.h"
 #include "superblock.h"
 #include "blockgroup.h"
 #include "inode.h"
 
-void ls(struct ext2_super_block *sb, int ino, int rec, char *hdr)
+void ls(e3tools_t *e3t, int ino, int rec, char *hdr)
 {
 	struct ifile *ifp;
 	char lol[32768];	/* XXX */
@@ -45,7 +46,7 @@ void ls(struct ext2_super_block *sb, int ino, int rec, char *hdr)
 	strcpy(rechdr, hdr);
 	strcat(rechdr, "  ");
 	
-	ifp = ifile_open(sb, ino);
+	ifp = ifile_open(e3t, ino);
 	if (!ifp)
 	{
 		printf("open failure!\n");
@@ -79,7 +80,7 @@ void ls(struct ext2_super_block *sb, int ino, int rec, char *hdr)
 		case 2:
 			printf("%s[DIR@%d] %s\n", hdr, lld->inode, fname);
 			if (rec && strcmp(fname, ".") && strcmp(fname, ".."))
-				ls(sb, lld->inode, 1, rechdr);
+				ls(e3t, lld->inode, 1, rechdr);
 			break;
 		default:
 			printf("%s[???@%d] %s\n", hdr, lld->inode, fname);
@@ -93,8 +94,7 @@ void ls(struct ext2_super_block *sb, int ino, int rec, char *hdr)
 
 int main(int argc, char **argv)
 {
-	struct ext2_super_block sb;
-	sector_t sbsector = 2;
+	e3tools_t e3t;
 	int opt;
 	int print_sb = 0;
 	int print_bgd = 0;
@@ -110,14 +110,17 @@ int main(int argc, char **argv)
 	       "This program does really dangerous things to really badly hosed drives.\n"
 	       "Using it without care might make your drive into one of them. Create an\n"
 	       "LVM snapshot before using this program.\n\n");
+	      
+	if (e3tools_init(&e3t, &argc, &argv) < 0)
+	{
+		printf("e3tools initialization failed -- bailing out\n");
+		return 1;
+	}
 	
-	while ((opt = getopt(argc, argv, "n:sdDTt:i:l:R")) != -1)
+	while ((opt = getopt(argc, argv, "sdDTt:i:l:R")) != -1)
 	{
 		switch (opt)
 		{
-		case 'n':
-			sbsector = strtoll(optarg, NULL, 0);
-			break;
 		case 's':
 			print_sb = 1;
 			break;
@@ -143,8 +146,7 @@ int main(int argc, char **argv)
 			ls_recursive = 1;
 			break;
 		default:
-			printf("Usage: %s [-n sector_of_alt_superblock] [-s] [-d] [-D] [-t block_group] [-T] [-i inode] [-l inode] [-R]\n", argv[0]);
-			printf("-n causes the superblock to be read from an alternate location\n");
+			printf("Usage: %s [-s] [-d] [-D] [-t block_group] [-T] [-i inode] [-l inode] [-R]\n", argv[0]);
 			printf("-s enables printing of Superblock information\n");
 			printf("-d enables printing of block group Descriptor information\n");
 			printf("-D enables repair of block group Descriptor information\n");
@@ -153,58 +155,54 @@ int main(int argc, char **argv)
 			printf("-i displays the contents of an inode\n");
 			printf("-l gives a 'ls' of a directory inode\n");
 			printf("-R makes 'ls' recursive\n");
+			e3tools_usage();
 			exit(1);
 		}
-	}
-	
-	printf("Reading superblock from sector %lld.\n", sbsector);
-	if (disk_read_sector(sbsector, (uint8_t*)&sb) < 0)
-	{
-		perror("read_sector");
-		return 1;
 	}
 	
 	if (print_sb)
 	{
 		printf("Dumping superblock.\n");
-		superblock_show(&sb);
+		superblock_show(&e3t);
 		printf("\n");
 	}
 	
 	if (print_bgd)
 	{
 		printf("Dumping block group descriptor table.\n");
-		block_group_desc_table_show(&sb);
+		block_group_desc_table_show(&e3t);
 		printf("\n");
 	}
 	
 	if (repair_bgd)
 	{
 		printf("Repairing block group descriptor table as needed.\n");
-		block_group_desc_table_repair(&sb);
+		block_group_desc_table_repair(&e3t);
 		printf("\n");
 	}
 	
 	if (show_itable >= 0)
-		inode_table_show(&sb, show_itable);
+		inode_table_show(&e3t, show_itable);
 	
 	if (check_itable)
-		for (i = 0; i < SB_GROUPS(&sb); i++)
-			inode_table_check(&sb, i);
+		for (i = 0; i < SB_GROUPS(&e3t.sb); i++)
+			inode_table_check(&e3t, i);
 	
 	if (show_inode >= 0)
 	{
 		struct ext2_inode inode;
-		inode_find(&sb, show_inode, &inode);
-		inode_print(&sb, &inode, show_inode);
+		inode_find(&e3t, show_inode, &inode);
+		inode_print(&e3t, &inode, show_inode);
 	}
 	
 	if (ls_inode >= 0)
 	{
 		struct ext2_inode inode;
-		inode_find(&sb, ls_inode, &inode);
-		ls(&sb, ls_inode, ls_recursive, "");
+		inode_find(&e3t, ls_inode, &inode);
+		ls(&e3t, ls_inode, ls_recursive, "");
 	}
+	
+	disk_close(&e3t);
 	
 	return 0;
 }
