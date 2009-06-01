@@ -22,6 +22,38 @@ typedef struct ext3_lldir {		/* XXX */
 	char name[EXT3_LL_MAX_NAME];
 } ext3_lldir_t;
 
+static void _print_entry(e3tools_t *e3t, ext3_lldir_t *lld)
+{
+	char fname[EXT3_LL_MAX_NAME];
+	char *type;
+	
+	strncpy(fname, lld->name, lld->name_len);
+	fname[lld->name_len] = 0;
+	
+	if (lld->file_type == 0)
+	{
+		printf("%d bytes padding\n", lld->rec_len);
+		return;
+	}
+	
+	if (lld->inode == 0)
+		printf("DELETED ");
+	
+	switch (lld->file_type)
+	{
+	case 1: type = "FIL"; break;
+	case 2: type = "DIR"; break;
+	case 3: type = "CHR"; break;
+	case 4: type = "BLK"; break;
+	case 5: type = "FIF"; break;
+	case 6: type = "SCK"; break;
+	case 7: type = "SYM"; break;
+	default: type = "???"; break;
+	}
+	
+	printf("[%s@%d, %d] %s\n", type, lld->inode, lld->rec_len, fname);
+}
+
 static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 {
 	struct ifile *ifp;
@@ -59,31 +91,9 @@ static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 				goto bailout;
 			}
 			
-			char fname[EXT3_LL_MAX_NAME];
-			
-			strncpy(fname, lld->name, lld->name_len);
-			fname[lld->name_len] = 0;
-			
-			if (lld->inode == 0)
-				printf("DELETED ");
-			
-			switch (lld->file_type)
-			{
-			case 0:
-				printf("%d bytes padding\n", lld->rec_len);
-				break;
-			case 1:
-				printf("[FIL@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
-				break;
-			case 2:
-				printf("[DIR@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
-				if ((recdepth >= 0) && strcmp(fname, ".") && strcmp(fname, "..") && lld->inode)
-					_do_ls(e3t, lld->inode, recdepth + 1);
-				break;
-			default:
-				printf("[???@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
-				break;
-			}
+			_print_entry(e3t, lld);
+			if ((lld->file_type == 2 /* directory */) && (recdepth >= 0) && strncmp(lld->name, ".", 2) && strncmp(lld->name, "..", 2) && lld->inode)
+				_do_ls(e3t, lld->inode, recdepth + 1);
 		}
 		
 		if (blkpos != blklen)
