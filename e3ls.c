@@ -52,6 +52,7 @@ static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 			
 			lld = (ext3_lldir_t *)(block + blkpos);
 			blkpos += lld->rec_len;
+			
 			if (lld->rec_len == 0)
 			{
 				printf("WARNING: directory inode %d has a record where rec_len = 0 -- inode on fire?\n", ino);
@@ -63,6 +64,9 @@ static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 			strncpy(fname, lld->name, lld->name_len);
 			fname[lld->name_len] = 0;
 			
+			if (lld->inode == 0)
+				printf("DELETED ");
+			
 			switch (lld->file_type)
 			{
 			case 0:
@@ -73,7 +77,7 @@ static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 				break;
 			case 2:
 				printf("[DIR@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
-				if ((recdepth >= 0) && strcmp(fname, ".") && strcmp(fname, ".."))
+				if ((recdepth >= 0) && strcmp(fname, ".") && strcmp(fname, "..") && lld->inode)
 					_do_ls(e3t, lld->inode, recdepth + 1);
 				break;
 			default:
