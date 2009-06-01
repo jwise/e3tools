@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <getopt.h>
+#include <alloca.h>
 
 #include "e3tools.h"
 #include "diskio.h"
@@ -24,58 +25,68 @@ typedef struct ext3_lldir {		/* XXX */
 static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 {
 	struct ifile *ifp;
-	char lol[32768];	/* XXX */
 	ext3_lldir_t *lld;
-	int totpos = 0;
-	int totlen;
+	int blkpos = 0;
+	int blklen;
+	void *block = alloca(SB_BLOCK_SIZE(&e3t->sb));
 	
 	ifp = ifile_open(e3t, ino);
 	if (!ifp)
 	{
-		printf("open failure!\n");
+		printf("Directory inode %d open failure!\n", ino);
 		return;
 	}
-	totlen = ifile_read(ifp, lol, 32768);
 	
-	while (totpos < totlen)
+	while ((blklen = ifile_read(ifp, block, SB_BLOCK_SIZE(&e3t->sb))) > 0)
 	{
-		int i;
-		
-		for (i = 0; i < recdepth; i++)	/* Disambiguate directory levels. */
-			printf("  ");
-		
-		lld = (ext3_lldir_t *)(lol + totpos);
-		totpos += lld->rec_len;
-		char fname[EXT3_LL_MAX_NAME];
-		
-		if (lld->rec_len == 0)
+		blkpos = 0;
+		if (blklen != SB_BLOCK_SIZE(&e3t->sb))
+			printf("WARNING: directory inode %d short read (%d bytes) -- inode on fire?\n", ino, blklen);
+
+		while (blkpos < blklen)
 		{
-			printf("YIKES that looks bad! rec_len = 0?\n");
-			break;
+			int i;
+			
+			for (i = 0; i < recdepth; i++)	/* Disambiguate directory levels. */
+				printf("  ");
+			
+			lld = (ext3_lldir_t *)(block + blkpos);
+			blkpos += lld->rec_len;
+			if (lld->rec_len == 0)
+			{
+				printf("WARNING: directory inode %d has a record where rec_len = 0 -- inode on fire?\n", ino);
+				goto bailout;
+			}
+			
+			char fname[EXT3_LL_MAX_NAME];
+			
+			strncpy(fname, lld->name, lld->name_len);
+			fname[lld->name_len] = 0;
+			
+			switch (lld->file_type)
+			{
+			case 0:
+				printf("%d bytes padding\n", lld->rec_len);
+				break;
+			case 1:
+				printf("[FIL@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
+				break;
+			case 2:
+				printf("[DIR@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
+				if ((recdepth >= 0) && strcmp(fname, ".") && strcmp(fname, ".."))
+					_do_ls(e3t, lld->inode, recdepth + 1);
+				break;
+			default:
+				printf("[???@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
+				break;
+			}
 		}
 		
-		strncpy(fname, lld->name, lld->name_len);
-		fname[lld->name_len] = 0;
-		
-		switch (lld->file_type)
-		{
-		case 0:
-			printf("%d bytes padding\n", lld->rec_len);
-			break;
-		case 1:
-			printf("[FIL@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
-			break;
-		case 2:
-			printf("[DIR@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
-			if ((recdepth >= 0) && strcmp(fname, ".") && strcmp(fname, ".."))
-				_do_ls(e3t, lld->inode, recdepth + 1);
-			break;
-		default:
-			printf("[???@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
-			break;
-		}
+		if (blkpos != blklen)
+			printf("WARNING: directory inode %d padding overran a single block -- inode on fire?\n", ino);
 	}
-	
+
+bailout:
 	ifile_close(ifp);
 }
 
