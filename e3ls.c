@@ -99,6 +99,8 @@ static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 		if (blkpos != blklen)
 			printf("WARNING: directory inode %d padding overran a single block -- inode on fire?\n", ino);
 	}
+	if (blklen < 0)
+		printf("WARNING: directory inode %d read failure -- inode on fire?\n", ino);
 
 bailout:
 	ifile_close(ifp);
