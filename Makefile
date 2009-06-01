@@ -7,7 +7,7 @@ DEPFILES = $(LIBSOURCES:.c=.d) $(APPS:=.d)
 
 CC = gcc
 CFLAGS ?= -O2
-CPPFLAGS += -Ilib
+CPPFLAGS += -Ilib -D__KERNEL_STRICT_NAMES
 
 all: $(APPS)
 
