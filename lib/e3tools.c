@@ -72,4 +72,5 @@ void e3tools_usage()
 void e3tools_close(e3tools_t *e3t)
 {
 	disk_close(e3t);
+	diskcow_export(e3t, NULL);
 }
