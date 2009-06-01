@@ -1,4 +1,4 @@
-// e3showbgd
+// e3repairbgd
 // Utilities to make sense out of really damaged ext2/ext3 filesystems.
 //
 // If you have to make an assumption, write it down. Better assumptions may
@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
-	block_group_desc_table_show(&e3t);
+	block_group_desc_table_repair(&e3t);
 	
 	e3tools_close(&e3t);
 	

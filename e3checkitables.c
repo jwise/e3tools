@@ -1,4 +1,4 @@
-// e3showbgd
+// e3checkitables
 // Utilities to make sense out of really damaged ext2/ext3 filesystems.
 //
 // If you have to make an assumption, write it down. Better assumptions may
@@ -10,6 +10,7 @@
 int main(int argc, char **argv)
 {
 	e3tools_t e3t;
+	int i;
 	
 	if (e3tools_init(&e3t, &argc, &argv) < 0)
 	{
@@ -24,7 +25,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
-	block_group_desc_table_show(&e3t);
+	for (i = 0; i < SB_GROUPS(&e3t.sb); i++)
+		inode_table_check(&e3t, i);
 	
 	e3tools_close(&e3t);
 	
