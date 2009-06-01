@@ -1,7 +1,7 @@
-LIBSOURCES = lib/diskio.c lib/superblock.c lib/blockgroup.c lib/inode.c lib/e3tools.c
+LIBSOURCES = lib/diskio.c lib/diskcow.c lib/superblock.c lib/blockgroup.c lib/inode.c lib/e3tools.c
 LIBOBJS = $(LIBSOURCES:.c=.o)
 
-APPS = e3view
+APPS = e3view e3showsb e3showbgd
 
 DEPFILES = $(LIBSOURCES:.c=.d) $(APPS:=.d)
 

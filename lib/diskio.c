@@ -1,4 +1,4 @@
-// e3view disk I/O layer
+// e3tools disk I/O layer
 // Utility to make sense out of really damaged ext2/ext3 filesystems.
 //
 // If you have to make an assumption, write it down. Better assumptions may
@@ -28,30 +28,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "e3tools.h"
 #include "diskio.h"
 #include "superblock.h"
 #include "blockgroup.h"
-
-struct exception {
-	sector_t sector;
-	uint8_t data[BYTES_PER_SECTOR];
-	struct exception *next;
-};
-
-static int _exception_lookup(e3tools_t *e3t, sector_t s, uint8_t *buf)
-{
-	struct exception *exn;
-	
-	for (exn = e3t->exceptions; exn && (exn->sector < s); exn = exn->next)
-		;
-	
-	if (exn && (exn->sector == s))
-	{
-		memcpy(buf, exn->data, BYTES_PER_SECTOR);
-		return 1;
-	}
-	return 0;
-}
+#include "diskcow.h"
 
 int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
@@ -71,7 +52,7 @@ int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
         unsigned int raid_disks = 3;                  
         unsigned int data_disks = 2;                    /* is this true? */
 
-	if (_exception_lookup(e3t, s, buf))
+	if (diskcow_read(e3t, s, buf))
 		return 0;
 
         /* open... */
@@ -139,44 +120,14 @@ int disk_read_block(e3tools_t *e3t, block_t b, uint8_t *buf)
 
 int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
-	struct exception *exn, *exnp;
-
-	exn = malloc(sizeof(*exn));
-	if (!exn)
-		return -1;
-	
-	for (exnp = e3t->exceptions; exnp && (exnp->sector != s) && exnp->next && (exnp->next->sector < s); exnp = exnp->next)
-		;
-		
-	if (!e3t->exceptions)
-	{
-		e3t->exceptions = exn;
-		exn->next = NULL;
-	} else if (exnp->sector == s) {
-		free(exn);	// No linked list update needed.
-		memcpy(exnp->data, buf, BYTES_PER_SECTOR);
-		return 0;
-	} else {
-		exn->next = exnp->next;
-		exnp->next = exn;
-	}
-	
-	memcpy(exn->data, buf, BYTES_PER_SECTOR);
-	exn->sector = s;
-
-	return 0;
+	return diskcow_write(e3t, s, buf);
 }
 
 int disk_close(e3tools_t *e3t)
 {
-	int i = 0, n;
-	struct exception *exn;
-	
-	for (exn = e3t->exceptions; exn; exn = exn->next)
-		i++;
+	int n;
+
 	for (n = 0; n < 3; n++)
 		if (e3t->diskfd[n] >= 0)
 			close(e3t->diskfd[n]);
-	if (i > 0)
-		printf("%d dirty sectors, comprising %lld bytes\n", i, i*BYTES_PER_SECTOR);
 }
