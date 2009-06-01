@@ -12,23 +12,22 @@
 #include "diskio.h"
 #include "inode.h"
 
-static void _do_ls(e3tools_t *e3t, int ino, int rec, char *hdr)
+#define EXT3_LL_MAX_NAME 256
+typedef struct ext3_lldir {		/* XXX */
+	uint32_t inode;
+	uint16_t rec_len;
+	unsigned char name_len;
+	char file_type;
+	char name[EXT3_LL_MAX_NAME];
+} ext3_lldir_t;
+
+static void _do_ls(e3tools_t *e3t, int ino, int recdepth)
 {
 	struct ifile *ifp;
 	char lol[32768];	/* XXX */
-	struct lld {		/* XXX */
-		uint32_t inode;
-		uint16_t rec_len;
-		unsigned char name_len;
-		char file_type;
-		char name[256];
-	};
-	struct lld *lld;
+	ext3_lldir_t *lld;
 	int totpos = 0;
 	int totlen;
-	char *rechdr = malloc(strlen(hdr) + 3);
-	strcpy(rechdr, hdr);
-	strcat(rechdr, "  ");
 	
 	ifp = ifile_open(e3t, ino);
 	if (!ifp)
@@ -40,13 +39,18 @@ static void _do_ls(e3tools_t *e3t, int ino, int rec, char *hdr)
 	
 	while (totpos < totlen)
 	{
-		lld = (struct lld *)(lol + totpos);
+		int i;
+		
+		for (i = 0; i < recdepth; i++)	/* Disambiguate directory levels. */
+			printf("  ");
+		
+		lld = (ext3_lldir_t *)(lol + totpos);
 		totpos += lld->rec_len;
-		char fname[256];
+		char fname[EXT3_LL_MAX_NAME];
 		
 		if (lld->rec_len == 0)
 		{
-			printf("%sYIKES that looks bad! rec_len = 0?\n", hdr);
+			printf("YIKES that looks bad! rec_len = 0?\n");
 			break;
 		}
 		
@@ -56,24 +60,23 @@ static void _do_ls(e3tools_t *e3t, int ino, int rec, char *hdr)
 		switch (lld->file_type)
 		{
 		case 0:
-			printf("%s%d bytes padding\n", hdr, lld->rec_len);
+			printf("%d bytes padding\n", lld->rec_len);
 			break;
 		case 1:
-			printf("%s[FIL@%d] %s\n", hdr, lld->inode, fname);
+			printf("[FIL@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
 			break;
 		case 2:
-			printf("%s[DIR@%d] %s\n", hdr, lld->inode, fname);
-			if (rec && strcmp(fname, ".") && strcmp(fname, ".."))
-				_do_ls(e3t, lld->inode, 1, rechdr);
+			printf("[DIR@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
+			if ((recdepth >= 0) && strcmp(fname, ".") && strcmp(fname, ".."))
+				_do_ls(e3t, lld->inode, recdepth + 1);
 			break;
 		default:
-			printf("%s[???@%d] %s\n", hdr, lld->inode, fname);
+			printf("[???@%d, %d] %s\n", lld->inode, lld->rec_len, fname);
 			break;
 		}
 	}
 	
 	ifile_close(ifp);
-	free(rechdr);
 }
 
 int main(int argc, char **argv)
@@ -107,12 +110,10 @@ int main(int argc, char **argv)
 	
 	for (arg = optind; arg < argc; arg++)
 	{
-		struct ext2_inode inode;
-		
 		ls_inode = strtoll(argv[arg], NULL, 0);
 		
-		inode_find(&e3t, ls_inode, &inode);
-		_do_ls(&e3t, ls_inode, ls_recursive, "");
+		printf("Directory listing for inode %d:\n", ls_inode);
+		_do_ls(&e3t, ls_inode, ls_recursive ? 0 : -1);
 	}
 	
 	e3tools_close(&e3t);
