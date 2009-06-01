@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 	block = alloca(SB_BLOCK_SIZE(&e3t.sb));
 	b = strtoll(argv[1], NULL, 0);
 	
-	if (disk_read_block(&e3t, b, (uint8_t *)&block) < 0)
+	if (disk_read_block(&e3t, b, (uint8_t *)block) < 0)
 	{
 		perror("disk_read_block");
 		return 1;
