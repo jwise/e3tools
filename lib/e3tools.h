@@ -13,6 +13,7 @@
 typedef struct e3tools {
 	struct ext2_super_block sb;
 	struct exception *exceptions;
+	char *cowfile;
 	int diskfd;
 } e3tools_t;
 
