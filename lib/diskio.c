@@ -34,22 +34,86 @@
 #include "blockgroup.h"
 #include "diskcow.h"
 
+/* XXX this should go into another file */
+static diskio_t *_simpledisk_open(char *str);
+static int _simpledisk_read_sector(diskio_t *disk, sector_t s, uint8_t *buf);
+static int _simpledisk_close(diskio_t *disk);
+
+diskio_t simpledisk_ops = {
+	.open = _simpledisk_open,
+	.read_sector = _simpledisk_read_sector,
+	.close = _simpledisk_close
+};
+
+struct simplediskio {
+	diskio_t ops;
+	int diskfd;
+};
+
+static diskio_t *_simpledisk_open(char *str)
+{
+	struct simplediskio *sd;
+	
+	if (strncmp("simple:", str, 7))
+		return NULL;	/* Didn't match */
+	str += 7;
+	
+	sd = malloc(sizeof(*sd));
+	if (!sd)
+		return NULL;
+	
+	memcpy(&sd->ops, &simpledisk_ops, sizeof(diskio_t));
+	sd->diskfd = open(str, O_RDONLY);
+	if (sd->diskfd == -1)
+	{
+		perror("simpledisk_open: open");
+		free(sd);
+		return NULL;
+	}
+	
+	return (diskio_t *)sd;
+}
+
+static int _simpledisk_read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
+{
+	struct simplediskio *sd = (struct simplediskio *)disk;
+	if (lseek64(sd->diskfd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
+		return -1;	/* oh well */
+	if (read(sd->diskfd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
+		return -1;
+	return 0;
+}
+
+static int _simpledisk_close(diskio_t *disk)
+{
+	struct simplediskio *sd = (struct simplediskio *)disk;
+	close(sd->diskfd);
+}
+
+/* XXX above should go into another file*/
+
+static diskio_t *mechanisms[] = {
+	&simpledisk_ops,
+	NULL
+};
+
+int disk_open(e3tools_t *e3t, char *desc)
+{
+	static diskio_t **mech;
+	
+	for (mech = mechanisms; *mech; mech++)
+		if ((e3t->disk = (*mech)->open(desc)) != NULL)
+			return 0;
+	
+	return -1;
+}
+
 int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
-	/* XXX generalize as needed? */
-	/* XXX this sucks */
 	if (diskcow_read(e3t, s, buf))
 		return 0;
 	
-	if (e3t->diskfd == -1)
-		e3t->diskfd = open("recover"/*/dev/storage/storage0"*/, O_RDONLY);
-	if (e3t->diskfd == -1)	/* Still? */
-		return -1;	/* oh well */
-	if (lseek64(e3t->diskfd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
-		return -1;	/* oh well */
-	if (read(e3t->diskfd, buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
-		return -1;
-	return 0;
+	return e3t->disk->read_sector(e3t->disk, s, buf);
 }
 
 int disk_read_block(e3tools_t *e3t, block_t b, uint8_t *buf)
@@ -75,6 +139,5 @@ int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 
 int disk_close(e3tools_t *e3t)
 {
-	if (e3t->diskfd >= 0)
-		close(e3t->diskfd);
+	return e3t->disk->close(e3t->disk);
 }
