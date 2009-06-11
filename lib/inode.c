@@ -4,7 +4,9 @@
 // If you have to make an assumption, write it down. Better assumptions may
 // lead to better grades.
 
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <alloca.h>
 #include <linux/fs.h>
 #include <linux/ext2_fs.h>

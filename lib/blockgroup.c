@@ -43,11 +43,11 @@ void block_group_desc_table_show(e3tools_t *e3t)
 	printf("Block descriptor table from block group %d\n", e3t->sb.s_block_group_nr);
 	printf("Starts on block %d\n", e3t->sb.s_block_group_nr * e3t->sb.s_blocks_per_group + 1);
 	sector = (e3t->sb.s_block_group_nr * e3t->sb.s_blocks_per_group + 1LL) * (sector_t)sectors_per_block;
-	printf("  ... or sector %lld\n", sector);
+	printf("  ... or sector %lld\n", (long long int)sector);
 	printf("Expecting %d block groups\n", bgs);
-	printf("Expecting %d bytes of block group\n", sizeof(struct ext2_group_desc) * (bgs));
+	printf("Expecting %lu bytes of block group\n", sizeof(struct ext2_group_desc) * (bgs));
 	printf("Expecting %lld sectors of block group\n", sizeof(struct ext2_group_desc) * (bgs) / BYTES_PER_SECTOR);
-	printf("Expecting %d blocks of block group\n", sizeof(struct ext2_group_desc) * (bgs) / bytes_per_block);
+	printf("Expecting %lu blocks of block group\n", sizeof(struct ext2_group_desc) * (bgs) / bytes_per_block);
 	printf("OK, let's do this!\n");
 	printf("\n");
 	
@@ -56,7 +56,7 @@ void block_group_desc_table_show(e3tools_t *e3t)
 		int pos = curbg % (BYTES_PER_SECTOR / sizeof(struct ext2_group_desc));
 		if (pos == 0)
 		{
-			printf("Reading from new sector: %lld\n", sector);
+			printf("Reading from new sector: %lld\n", (long long int)sector);
 			if (disk_read_sector(e3t, sector, (uint8_t *)sect) < 0)
 			{
 				fflush(stdout);
@@ -107,7 +107,7 @@ void block_group_desc_table_repair(e3tools_t *e3t)
 			if (dirty)
 			{
 				sector--;
-				printf("Writing back to repaired sector: %lld (%d changes)\n", sector, dirty);
+				printf("Writing back to repaired sector: %lld (%d changes)\n", (long long int)sector, dirty);
 				if (disk_write_sector(e3t, sector, (uint8_t *)sect) < 0)
 				{
 					fflush(stdout);

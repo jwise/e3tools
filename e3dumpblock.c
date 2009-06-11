@@ -4,6 +4,9 @@
 // If you have to make an assumption, write it down. Better assumptions may
 // lead to better grades.
 
+#include <stdlib.h>
+#include <stdio.h>
+
 #include "e3tools.h"
 #include "superblock.h"
 #include "diskio.h"

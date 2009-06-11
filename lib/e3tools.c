@@ -9,7 +9,9 @@
 
 #include <linux/fs.h>
 #include <linux/ext2_fs.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "e3tools.h"
 #include "diskio.h"
@@ -82,7 +84,7 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 	if (e3t->cowfile)
 		(void) diskcow_import(e3t, e3t->cowfile);	/* Failure is OK */
 	
-	E3DEBUG(E3TOOLS_PFX "Reading superblock from sector %lld.\n", sbsector);
+	E3DEBUG(E3TOOLS_PFX "Reading superblock from sector %lld.\n", (long long int)sbsector);
 	if (disk_read_sector(e3t, sbsector, (uint8_t*)&e3t->sb) < 0)
 	{
 		perror("disk_read_sector(sbsector)");

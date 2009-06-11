@@ -5,7 +5,9 @@
 // lead to better grades.
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <getopt.h>
 #include <alloca.h>
 
