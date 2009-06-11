@@ -10,12 +10,16 @@
 #define E3TOOLS_NAME "e3tools"
 #define E3TOOLS_PFX E3TOOLS_NAME ": "
 
-typedef struct e3tools {
+typedef struct e3tools e3tools_t;
+
+#include "diskio.h"
+
+struct e3tools {
 	struct ext2_super_block sb;
 	struct exception *exceptions;
-	int diskfd[3];
 	char *cowfile;
-} e3tools_t;
+	diskio_t *disk;
+};
 
 extern int e3tools_init(e3tools_t *e3t, int *argc, char ***argv);
 extern void e3tools_usage();

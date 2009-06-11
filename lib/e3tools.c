@@ -23,12 +23,11 @@ static void _eat(int arg, int *argc, char ***argv)
 
 int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 {
+	/* XXX Leaks memory on failure. */
 	sector_t sbsector = 2;
+	char *diskdesc = strdup("simple:recover");
 	
 	e3t->exceptions = NULL;
-	e3t->diskfd[0] = -1;
-	e3t->diskfd[1] = -1;
-	e3t->diskfd[2] = -1;
 	e3t->cowfile = NULL;
 	
 	/* I do not like this 'nomming options' thing, since it means I have
@@ -59,9 +58,25 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 				}
 				e3t->cowfile = strdup((*argv)[arg]);
 				_eat(arg, argc, argv);
+			} else if (!strcmp((*argv)[arg], "--disk")) {
+				_eat(arg, argc, argv);
+				if (arg == *argc)
+				{
+					E3DEBUG(E3TOOLS_PFX "--disk requires a parameter!\n");
+					return -1;
+				}
+				free(diskdesc);
+				diskdesc = strdup((*argv)[arg]);
+				_eat(arg, argc, argv);
 			} else
 				arg++;
 		}
+	}
+	
+	if (disk_open(e3t, diskdesc) < 0)
+	{
+		E3DEBUG(E3TOOLS_PFX "Failed to open volume by name of \"%s\".\n", diskdesc);
+		return -1;
 	}
 	
 	if (e3t->cowfile)
@@ -74,6 +89,8 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 		return -1;
 	}
 	
+	free(diskdesc);
+	
 	return 0;
 }
 
@@ -83,6 +100,7 @@ void e3tools_usage()
 	printf("--superblock <sector> chooses an alternative sector to read the filesystem's superblock from\n");
 	printf("          -n <sector>\n");
 	printf("--cowfile <file> gives a file to read in COW data from and save out COW data to\n");
+	printf("--disk <mechanism> gives a mechanism by which to read a disk -- i.e., 'simple:recover' to read from a file called 'recover'.  This is the default.\n");
 }
 
 void e3tools_close(e3tools_t *e3t)

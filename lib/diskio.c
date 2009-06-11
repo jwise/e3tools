@@ -33,73 +33,32 @@
 #include "superblock.h"
 #include "blockgroup.h"
 #include "diskcow.h"
+#include "simplediskio.h"
+#include "raiddiskio.h"
+
+static diskio_t *mechanisms[] = {
+        &raiddisk_ops,
+	&simpledisk_ops,
+	NULL
+};
+
+int disk_open(e3tools_t *e3t, char *desc)
+{
+	static diskio_t **mech;
+	
+	for (mech = mechanisms; *mech; mech++)
+		if ((e3t->disk = (*mech)->open(desc)) != NULL)
+			return 0;
+	
+	return -1;
+}
 
 int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
-	/* XXX generalize as needed? */
-	/* XXX this sucks */
-	unsigned int i;
-        char tmp[16];
-        int pd_idx, dd_idx;
-        long stripe;
-        unsigned long chunk_number;
-        unsigned int chunk_offset;
-        sector_t new_sector;
-        
-        /* XXX hurrrr (these should be derived elsewhere): */
-        int chunk_size = 65536;
-        int sectors_per_chunk = chunk_size >> 9;        /* ... ahahahaha no. */
-        unsigned int raid_disks = 3;                  
-        unsigned int data_disks = 2;                    /* is this true? */
-
 	if (diskcow_read(e3t, s, buf))
 		return 0;
-
-        /* open... */
-	for(i = 0; i < raid_disks; i++)
-	{
-                snprintf(tmp, sizeof(tmp), "/dev/loop%d", i);
-		if (e3t->diskfd[i] == -1)
-                        e3t->diskfd[i] = open(tmp, O_RDONLY);
-		if (e3t->diskfd[i] == -1)	/* Still? */
-                {
-			while(i--)
-                                close(e3t->diskfd[i]);
-                        return -1;	/* oh well */
-                }
-	}
-
-        /* lvm offset */
-	s += (sector_t)384;
-        
-        /* begin some hideousness that should probably be ripped out into
-         * another function, and heavily ganked from
-         * linux-source-$foo/drivers/md/raid5.c:raid5_compute_sector() */
-        chunk_offset = s % sectors_per_chunk;
-        s /= sectors_per_chunk;
-        chunk_number = s;
-
-        stripe = chunk_number / data_disks;
-        dd_idx = chunk_number % data_disks;
-
-        /* XXX ASLKDfja;lkfja;sdlkfjas;df 
-         * Somewhere, somehow, the relevant algorithm is stored on the disk
-         * along with other metadata (I assume). After fighting with linux 
-         * source for a while I am writing in the default case 
-         * (ALGORITHM_LEFT_SYMMETRIC). Joshua probably knows where to find 
-         * this data. Ideally the other cases would be plopped in here later. 
-         * drivers/md/md.c:mddev_find() may be of interest/use? */
-        pd_idx = data_disks - stripe % raid_disks;
-        dd_idx = (pd_idx + 1 + dd_idx) % raid_disks;
-        
-        new_sector = (sector_t)stripe * sectors_per_chunk + chunk_offset;
-
-        /* even this is uncertain! */
-        if (lseek64(e3t->diskfd[dd_idx], new_sector * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
-		return -1;	/* oh well */
-	if (read(e3t->diskfd[dd_idx], buf, BYTES_PER_SECTOR) < BYTES_PER_SECTOR)
-		return -1;
-	return 0;
+	
+	return e3t->disk->read_sector(e3t->disk, s, buf);
 }
 
 int disk_read_block(e3tools_t *e3t, block_t b, uint8_t *buf)
@@ -125,9 +84,5 @@ int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 
 int disk_close(e3tools_t *e3t)
 {
-	int n;
-
-	for (n = 0; n < 3; n++)
-		if (e3t->diskfd[n] >= 0)
-			close(e3t->diskfd[n]);
+	return e3t->disk->close(e3t->disk);
 }
