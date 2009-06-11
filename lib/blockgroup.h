@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-#include "e3tools.h"
-
 typedef uint32_t block_t;
+
+#include "e3tools.h"
 
 extern void block_group_desc_table_show(e3tools_t *sb);
 extern void block_group_desc_table_repair(e3tools_t *sb);
