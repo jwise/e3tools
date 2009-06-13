@@ -54,6 +54,9 @@ int disk_open(e3tools_t *e3t, char *desc)
 
 int disk_read_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
+	if (e3t->debug & E3TOOLS_DBG_DISKIO)
+		E3DEBUG(E3TOOLS_PFX "sector read from %lld\n", s);
+	
 	if (diskcow_read(e3t, s, buf))
 		return 0;
 	
@@ -78,6 +81,9 @@ int disk_read_block(e3tools_t *e3t, block_t b, uint8_t *buf)
 
 int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 {
+	if (e3t->debug & E3TOOLS_DBG_DISKIO)
+		E3DEBUG(E3TOOLS_PFX "sector write to %lld\n", s);
+	
 	return diskcow_write(e3t, s, buf);
 }
 
@@ -88,5 +94,8 @@ int disk_close(e3tools_t *e3t)
 
 int disk_lame_sector(e3tools_t *e3t, sector_t s)
 {
+	if (e3t->debug & E3TOOLS_DBG_DISKIO)
+		E3DEBUG(E3TOOLS_PFX "sector lame at %lld\n", s);
+	
 	return e3t->disk->lame_sector(e3t->disk, s);
 }

@@ -28,9 +28,12 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 	/* XXX Leaks memory on failure. */
 	sector_t sbsector = 2;
 	char *diskdesc = strdup("recover");
+	sector_t *lames = NULL;
+	int sz = 0, allocsz = 0;
 	
 	e3t->exceptions = NULL;
 	e3t->cowfile = NULL;
+	e3t->debug = 0;
 	
 	/* I do not like this 'nomming options' thing, since it means I have
 	 * to essentially reinvent getopt.  It appears to be what gtk does
@@ -70,6 +73,29 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 				free(diskdesc);
 				diskdesc = strdup((*argv)[arg]);
 				_eat(arg, argc, argv);
+			} else if (!strcmp((*argv)[arg], "--lame")) {
+				sector_t s;
+				_eat(arg, argc, argv);
+				if (arg == *argc)
+				{
+					E3DEBUG(E3TOOLS_PFX "--lame requires a parameter!\n");
+					return -1;
+				}
+				s = strtoll((*argv)[arg], NULL, 0);
+				if (sz == allocsz)
+				{
+					if (allocsz == 0)
+						allocsz = 1;
+					else
+						allocsz *= 2;
+					lames = realloc(lames, allocsz * sizeof(sector_t));
+				}
+				lames[sz] = s;
+				sz++;
+				_eat(arg, argc, argv);
+			} else if (!strcmp((*argv)[arg], "--debug-diskio")) {
+				e3t->debug |= E3TOOLS_DBG_DISKIO;
+				_eat(arg, argc, argv);
 			} else
 				arg++;
 		}
@@ -83,6 +109,14 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 	
 	if (e3t->cowfile)
 		(void) diskcow_import(e3t, e3t->cowfile);	/* Failure is OK */
+	
+	/* XXX Yuck.  I hate having to defer this mechanism. */
+	{
+		int i;
+		for (i = 0; i < sz; i++)
+			disk_lame_sector(e3t, lames[i]);
+	}
+	free(lames);
 	
 	E3DEBUG(E3TOOLS_PFX "Reading superblock from sector %lld.\n", (long long int)sbsector);
 	if (disk_read_sector(e3t, sbsector, (uint8_t*)&e3t->sb) < 0)
@@ -103,6 +137,8 @@ void e3tools_usage()
 	printf("          -n <sector>\n");
 	printf("--cowfile <file> gives a file to read in COW data from and save out COW data to\n");
 	printf("--disk <mechanism> gives a mechanism by which to read a disk -- i.e., 'simple:recover' to read from a file called 'recover'.  This is the default.\n");
+	printf("--debug-diskio enables prints on every disk access\n");
+	printf("--lame <sector> marks a sector as lame (can be specified multiple times)\n");
 }
 
 void e3tools_close(e3tools_t *e3t)
