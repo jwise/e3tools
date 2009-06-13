@@ -65,37 +65,39 @@ static diskio_t *_open(char *str)
 	return (diskio_t *)rd;
 }
 
-static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
+void compute_disklocs(sector_t log, sector_t *phys, int *pd_idx, int *dd_idx)
 {
-	struct raiddiskio *rd = (struct raiddiskio *)disk;
-	int pd_idx, dd_idx;
-	long stripe;
-	unsigned long chunk_number;
-	unsigned int chunk_offset;
-	sector_t new_sector;
-	
-	s += (sector_t)LVM_OFFSET;
-	
+	/* Ganked from linux/drivers/md/raid5.c:raid5_compute_sector() */
 	/* XXX need to look up actual RAID parameters from disk!
 	 * currently assuming RAID_DISKS/DATA_DISKS, and the default
 	 * algorithm of ALGORITHM_LEFT_SYMMETRIC.
 	 * should look at drivers/md/md.c:mddev_find() ?
 	 */
+	long stripe;
+	unsigned long chunk_number;
+	unsigned int chunk_offset;
 	
-	/* begin some hideousness that should probably be ripped out into
-	 * another function, and heavily ganked from
-	 * linux-source-$foo/drivers/md/raid5.c:raid5_compute_sector() */
-	chunk_offset = s % SECTORS_PER_CHUNK;
-	s /= SECTORS_PER_CHUNK;
-	chunk_number = s;
-
+	chunk_offset = log % SECTORS_PER_CHUNK;
+	chunk_number = log / SECTORS_PER_CHUNK;
+	
 	stripe = chunk_number / DATA_DISKS;
-	dd_idx = chunk_number % DATA_DISKS;
+	*dd_idx = chunk_number % DATA_DISKS;
 
-	pd_idx = DATA_DISKS - stripe % RAID_DISKS;
-	dd_idx = (pd_idx + 1 + dd_idx) % RAID_DISKS;
+	*pd_idx = DATA_DISKS - stripe % RAID_DISKS;
+	*dd_idx = (*pd_idx + 1 + *dd_idx) % RAID_DISKS;
 	
-	new_sector = (sector_t)stripe * SECTORS_PER_CHUNK + chunk_offset;
+	*phys = (sector_t)stripe * SECTORS_PER_CHUNK + chunk_offset;
+}
+
+static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
+{
+	struct raiddiskio *rd = (struct raiddiskio *)disk;
+	int pd_idx, dd_idx;
+	sector_t new_sector;
+	
+	s += (sector_t)LVM_OFFSET;
+	
+	compute_disklocs(s, &new_sector, &pd_idx, &dd_idx);
 
 	if (lseek64(rd->diskfd[dd_idx], new_sector * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
 		return -1;	/* oh well */
