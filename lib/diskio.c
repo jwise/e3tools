@@ -32,9 +32,8 @@
 #include "superblock.h"
 #include "blockgroup.h"
 #include "diskcow.h"
-#include "raiddiskio.h"
 
-extern diskio_t simpledisk_ops;
+extern diskio_t raiddisk_ops, simpledisk_ops;
 
 static diskio_t *mechanisms[] = {
         &raiddisk_ops,
