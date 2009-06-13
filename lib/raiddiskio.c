@@ -74,7 +74,7 @@ static diskio_t *_open(char *str)
 	return (diskio_t *)rd;
 }
 
-void compute_disklocs(sector_t log, sector_t *phys, int *pd_idx, int *dd_idx)
+static void __compute_disklocs(struct raiddiskio *rd, sector_t log, sector_t *phys, int *pd_idx, int *dd_idx)
 {
 	/* Ganked from linux/drivers/md/raid5.c:raid5_compute_sector() */
 	/* XXX need to look up actual RAID parameters from disk!
@@ -85,9 +85,12 @@ void compute_disklocs(sector_t log, sector_t *phys, int *pd_idx, int *dd_idx)
 	long stripe;
 	unsigned long chunk_number;
 	unsigned int chunk_offset;
+	int lame;
 	
 	chunk_offset = log % SECTORS_PER_CHUNK;
 	chunk_number = log / SECTORS_PER_CHUNK;
+	
+	lame = __is_lame(rd, chunk_number);
 	
 	stripe = chunk_number / DATA_DISKS;
 	*dd_idx = chunk_number % DATA_DISKS;
@@ -95,7 +98,13 @@ void compute_disklocs(sector_t log, sector_t *phys, int *pd_idx, int *dd_idx)
 	*pd_idx = DATA_DISKS - stripe % RAID_DISKS;
 	*dd_idx = (*pd_idx + 1 + *dd_idx) % RAID_DISKS;
 	
-	*phys = (sector_t)stripe * SECTORS_PER_CHUNK + chunk_offset;
+	if (lame && (*dd_idx == 1))
+		*dd_idx = 2;
+	else if (lame && (*dd_idx == 2))
+		*dd_idx = 1;
+	
+	if (phys)
+		*phys = (sector_t)stripe * SECTORS_PER_CHUNK + chunk_offset;
 }
 
 static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
@@ -106,7 +115,7 @@ static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
 	
 	s += (sector_t)LVM_OFFSET;
 	
-	compute_disklocs(s, &new_sector, &pd_idx, &dd_idx);
+	__compute_disklocs(rd, s, &new_sector, &pd_idx, &dd_idx);
 
 	if (lseek64(rd->diskfd[dd_idx], new_sector * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
 		return -1;	/* oh well */
@@ -128,6 +137,7 @@ static int _lame_sector(diskio_t *disk, sector_t s)
 {
 	struct raiddiskio *rd = (struct raiddiskio *)disk;
 	chunk_t chunk_number;
+	int pd_idx, dd_idx;
 	
 	s += (sector_t)LVM_OFFSET;
 	
@@ -136,6 +146,13 @@ static int _lame_sector(diskio_t *disk, sector_t s)
 	if (__is_lame(rd, chunk_number))
 	{
 		E3DEBUG(E3TOOLS_PFX "raiddiskio: trying to mark sector %lld (chunk %d) lame, but it was already lame :( I think you may be hosed\n", s, chunk_number);
+		return -1;
+	}
+	
+	__compute_disklocs(rd, s, NULL, &pd_idx, &dd_idx);
+	if (dd_idx != 1 && dd_idx != 2)
+	{
+		E3DEBUG(E3TOOLS_PFX "raiddiskio: trying to mark sector %lld (chunk %d) lame, but it wasn't on a lame disk :( I think you may be hosed\n", s, chunk_number);
 		return -1;
 	}
 	
