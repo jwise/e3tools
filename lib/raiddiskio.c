@@ -18,15 +18,21 @@
 #define SECTORS_PER_CHUNK (CHUNK_SIZE >> 9)
 #define LVM_OFFSET 384
 
+typedef unsigned long chunk_t;
+
 struct raiddiskio {
 	diskio_t ops;
 	int diskfd[3];
+	chunk_t *lames;
+	int nlames;
+	int alloclames;
 };
 
 static diskio_t *_open(char *str);
 static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf);
 static int _close(diskio_t *disk);
 static int _lame_sector(diskio_t *disk, sector_t s);
+static int __is_lame(struct raiddiskio *rd, chunk_t c);
 
 diskio_t raiddisk_ops = {
 	.open = _open,
@@ -48,6 +54,9 @@ static diskio_t *_open(char *str)
 	if (!rd)
 		return NULL;
 	memcpy(&rd->ops, &raiddisk_ops, sizeof(diskio_t));
+	rd->lames = NULL;
+	rd->nlames = 0;
+	rd->alloclames = 0;
 	
 	for(i = 0; i < RAID_DISKS; i++)
 	{
@@ -70,7 +79,7 @@ static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
 	struct raiddiskio *rd = (struct raiddiskio *)disk;
 	int pd_idx, dd_idx;
 	long stripe;
-	unsigned long chunk_number;
+	chunk_t chunk_number;
 	unsigned int chunk_offset;
 	sector_t new_sector;
 	
@@ -104,9 +113,42 @@ static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
 	return 0;
 }
 
+static int __is_lame(struct raiddiskio *rd, chunk_t c)
+{
+	int i;
+	for (i = 0; i < rd->nlames; i++)
+		if (rd->lames[i] == c)
+			return 1;
+	return 0;
+}
+
 static int _lame_sector(diskio_t *disk, sector_t s)
 {
-	return -1;
+	struct raiddiskio *rd = (struct raiddiskio *)disk;
+	chunk_t chunk_number;
+	
+	s += (sector_t)LVM_OFFSET;
+	
+	chunk_number = s / SECTORS_PER_CHUNK;
+	
+	if (__is_lame(rd, chunk_number))
+	{
+		E3DEBUG(E3TOOLS_PFX "raiddiskio: trying to mark sector %lld (chunk %d) lame, but it was already lame :( I think you may be hosed\n", s, chunk_number);
+		return -1;
+	}
+	
+	if (rd->nlames == rd->alloclames)
+	{
+		if (rd->alloclames == 0)
+			rd->alloclames = 1;
+		else
+			rd->alloclames *= 2;
+		rd->lames = realloc(rd->lames, rd->alloclames * sizeof(chunk_t));
+	}
+	rd->lames[rd->nlames] = chunk_number;
+	rd->nlames++;
+	
+	return 0;
 }
 
 static int _close(diskio_t *disk)
