@@ -9,6 +9,7 @@
 #define E3TOOLS_VERSION "0.01"
 #define E3TOOLS_NAME "e3tools"
 #define E3TOOLS_PFX E3TOOLS_NAME ": "
+#define E3TOOLS_DBG_DISKIO 0x00000001
 
 typedef struct e3tools e3tools_t;
 
@@ -19,6 +20,7 @@ struct e3tools {
 	struct exception *exceptions;
 	char *cowfile;
 	diskio_t *disk;
+	unsigned long debug;
 };
 
 extern int e3tools_init(e3tools_t *e3t, int *argc, char ***argv);
