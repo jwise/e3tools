@@ -27,7 +27,7 @@ int e3tools_init(e3tools_t *e3t, int *argc, char ***argv)
 {
 	/* XXX Leaks memory on failure. */
 	sector_t sbsector = 2;
-	char *diskdesc = strdup("simple:recover");
+	char *diskdesc = strdup("recover");
 	
 	e3t->exceptions = NULL;
 	e3t->cowfile = NULL;

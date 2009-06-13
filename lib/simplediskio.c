@@ -1,25 +1,37 @@
-/* simplediskio.c */
+// e3tools "simple" disk I/O layer
+// Utility to make sense out of really damaged ext2/ext3 filesystems.
+//
+// If you have to make an assumption, write it down. Better assumptions may
+// lead to better grades.
 
 #define _LARGEFILE64_SOURCE
 #include <sys/types.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "simplediskio.h"
 
-diskio_t simpledisk_ops = {
-	.open = _simpledisk_open,
-	.read_sector = _simpledisk_read_sector,
-	.close = _simpledisk_close
+#include "diskio.h"
+
+struct simplediskio {
+	diskio_t ops;
+	int diskfd;
 };
 
-static diskio_t *_simpledisk_open(char *str)
+static diskio_t *_open(char *str);
+static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf);
+static int _close(diskio_t *disk);
+static int _lame_sector(diskio_t *disk, sector_t s);
+
+diskio_t simpledisk_ops = {
+	.open = _open,
+	.read_sector = _read_sector,
+	.close = _close,
+	.lame_sector = _lame_sector,
+};
+
+static diskio_t *_open(char *str)
 {
 	struct simplediskio *sd;
-	
-	if (strncmp("simple:", str, 7))
-		return NULL;	/* Didn't match */
-	str += 7;
 	
 	sd = malloc(sizeof(*sd));
 	if (!sd)
@@ -37,7 +49,7 @@ static diskio_t *_simpledisk_open(char *str)
 	return (diskio_t *)sd;
 }
 
-static int _simpledisk_read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
+static int _read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
 {
 	struct simplediskio *sd = (struct simplediskio *)disk;
 	if (lseek64(sd->diskfd, s * BYTES_PER_SECTOR, SEEK_SET) == (off64_t)-1)
@@ -47,8 +59,14 @@ static int _simpledisk_read_sector(diskio_t *disk, sector_t s, uint8_t *buf)
 	return 0;
 }
 
-static int _simpledisk_close(diskio_t *disk)
+static int _close(diskio_t *disk)
 {
 	struct simplediskio *sd = (struct simplediskio *)disk;
 	close(sd->diskfd);
+	return 0;
+}
+
+static int _lame_sector(diskio_t *disk, sector_t s)
+{
+	return -1;
 }

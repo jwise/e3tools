@@ -17,7 +17,6 @@
  * cause the caller to just report the sector in question as inaccessible).
  */
 
-#define _LARGEFILE64_SOURCE
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -33,8 +32,9 @@
 #include "superblock.h"
 #include "blockgroup.h"
 #include "diskcow.h"
-#include "simplediskio.h"
 #include "raiddiskio.h"
+
+extern diskio_t simpledisk_ops;
 
 static diskio_t *mechanisms[] = {
         &raiddisk_ops,
@@ -85,4 +85,9 @@ int disk_write_sector(e3tools_t *e3t, sector_t s, uint8_t *buf)
 int disk_close(e3tools_t *e3t)
 {
 	return e3t->disk->close(e3t->disk);
+}
+
+int disk_lame_sector(e3tools_t *e3t, sector_t s)
+{
+	return e3t->disk->lame_sector(e3t->disk, s);
 }
