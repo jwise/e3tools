@@ -12,9 +12,11 @@ extern void inode_table_show(e3tools_t *e3t, int bg);
 void inode_table_check(e3tools_t *e3t, int bg);
 void inode_print(e3tools_t *e3t, struct ext2_inode *inode, int ino);
 int inode_find(e3tools_t *e3t, int ino, struct ext2_inode *inode);
+int inode_mark_lame(e3tools_t *e3t, int ino);
 
 struct ifile *ifile_open(e3tools_t *e3t, int ino);
 int ifile_read(struct ifile *ifp, char *buf, int len);
+int ifile_seek(struct ifile *ifp, uint64_t pos);
 void ifile_close(struct ifile *ifp);
 
 #ifndef U64

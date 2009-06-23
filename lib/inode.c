@@ -99,6 +99,17 @@ int inode_find(e3tools_t *e3t, int ino, struct ext2_inode *inode)
 	return 0;
 }
 
+int inode_mark_lame(e3tools_t *e3t, int ino)
+{
+	int inodes_per_block = SB_BLOCK_SIZE(&e3t->sb) / e3t->sb.s_inode_size;
+	int bg = (ino - 1) / e3t->sb.s_inodes_per_group;
+	int curblock = block_group_inode_table_block(e3t, bg) + ((ino - 1) % e3t->sb.s_inodes_per_group) / inodes_per_block;
+	int offset = e3t->sb.s_inode_size * ((ino - 1) % inodes_per_block);
+	sector_t s = curblock * (SB_BLOCK_SIZE(&e3t->sb) / BYTES_PER_SECTOR) + (offset / BYTES_PER_SECTOR);
+	
+	return disk_lame_sector(e3t, s);
+}
+
 void inode_table_show(e3tools_t *e3t, int bg)
 {
 	int curblock = block_group_inode_table_block(e3t, bg);
@@ -317,6 +328,17 @@ int ifile_read(struct ifile *ifp, char *buf, int len)
 		len -= nbytes;
 	}
 	return rlen;
+}
+
+int ifile_seek(struct ifile *ifp, uint64_t pos)
+{
+	if (pos >= INODE_FILE_SIZE(&ifp->inode))
+		return -1;
+	
+	ifp->curblock = pos / SB_BLOCK_SIZE(&ifp->e3t->sb);
+	ifp->blockofs = pos % SB_BLOCK_SIZE(&ifp->e3t->sb);
+	
+	return 0;
 }
 
 void ifile_close(struct ifile *ifp)
